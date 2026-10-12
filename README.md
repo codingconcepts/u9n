@@ -4,7 +4,7 @@ A simple calculator that determines utilisation of a pre and post virtualised es
 ### Usage
 
 ```sh
-u9n --config _examples/clusters.csv --headroom 20 --growth 15 --years 3 --profile
+u9n --config _examples/quant-fund.csv --headroom 20 --growth 15 --years 3 --profile
 ```
 
 | Flag | Default | Description |
@@ -45,7 +45,7 @@ All hours are assumed to be in the same timezone. Normalise to UTC before writin
 Example with zero growth.
 
 ```sh
-u9n --config _examples/clusters.csv --headroom 40
+u9n --config _examples/quant-fund.csv --headroom 40
 
 Clusters:          15
 Provisioned vCPU:  726
@@ -63,7 +63,7 @@ Saved vCPU     0 (0.00%)  357 (49.17%)  441 (60.74%)
 Example with 15% growth every year for 3 years.
 
 ```sh
-u9n --config _examples/clusters.csv --headroom 40 --growth 15 --years 3
+u9n --config _examples/quant-fund.csv --headroom 40 --growth 15 --years 3
 
 Clusters:          15
 Provisioned vCPU:  726
@@ -132,7 +132,7 @@ The chart needs one column per sizing per hour plus the axis gutter, so around 7
 `--format json` emits the same figures plus per-cluster detail, for piping into other tools. The hourly profile is always included, so `--profile` affects table output only.
 
 ```sh
-u9n --config _examples/clusters.csv --format json | jq '.scenarios[] | {key, required_vcpu}'
+u9n --config _examples/quant-fund.csv --format json | jq '.scenarios[] | {key, required_vcpu}'
 ```
 
 ```json
