@@ -1,0 +1,15 @@
+name,provisioned_vcpu,peak_vcpu,base_vcpu,peak_from,peak_to
+core-ledger,768,300,160,7,20
+card-authorisation,512,180,90,0,24
+atm-switch,192,70,40,6,23
+faster-payments,256,96,48,0,24
+internet-banking,384,130,30,7,22
+mobile-api,448,160,40,6,23
+branch-teller,192,64,8,8,17
+loan-origination,128,38,6,9,18
+fraud-analytics,320,120,40,8,22
+treasury-risk,256,96,16,17,22
+settlement-batch,640,300,20,22,4
+regulatory-reporting,448,180,12,1,6
+data-warehouse,640,240,40,2,8
+dr-standby,256,24,24,0,24

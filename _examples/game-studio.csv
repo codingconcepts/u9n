@@ -1,0 +1,12 @@
+name,provisioned_vcpu,peak_vcpu,base_vcpu,peak_from,peak_to
+build-farm,1024,620,40,19,7
+asset-bake,640,300,20,20,6
+dev-vdi,768,380,40,8,19
+perforce-depot,192,72,32,8,20
+crash-triage,128,36,8,9,19
+localisation,64,16,2,9,18
+playtest-servers,512,180,24,12,23
+matchmaking,192,60,16,16,24
+anticheat-scoring,256,88,24,16,24
+telemetry-ingest,320,110,36,16,24
+store-backend,192,56,20,16,24

@@ -1,0 +1,13 @@
+name,provisioned_vcpu,peak_vcpu
+hss-subscriber,896,384
+ims-core,768,300
+pcrf-policy,448,180
+sbc-media,896,360
+charging-online,576,240
+dpi-inspection,1024,400
+cdr-mediation,512,190
+dns-recursive,256,88
+oss-fault-management,320,120
+provisioning-api,160,56
+sms-centre,192,64
+voicemail,128,32

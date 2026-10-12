@@ -1,0 +1,13 @@
+name,provisioned_vcpu,peak_vcpu,base_vcpu,peak_from,peak_to
+cdn-origin,1024,380,120,17,24
+playback-api,448,170,48,17,24
+drm-licence,224,84,24,17,24
+ads-decisioning,288,110,28,17,24
+recommendations,320,130,30,17,24
+telemetry-ingest,384,150,60,17,24
+catalogue-service,160,52,16,10,24
+user-profiles,160,56,24,0,24
+live-ingest,640,240,40,18,23
+transcode-farm,1280,600,60,0,7
+subtitle-pipeline,256,90,8,1,6
+rights-reporting,128,44,4,3,7
