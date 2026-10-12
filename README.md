@@ -115,26 +115,17 @@ Some things the tool deliberately doesn't model, each of which can move the answ
 
 `--format graph` opens a terminal chart of what each sizing provisions across the day. Press `q` to quit.
 
-```
-vCPU provisioned across the day, 15 clusters, 20% headroom
-██ Utilisation   ██ Current   ██ Worst case   ██ Hour aware
+![quant-fund](./assets/images/quant-fund.png)
 
-726 █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █
-    █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █
-    █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █   █
-316 █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄  █▄
-203 ██  ██  ██  ██  ██  ██  ██  ██  ██  ██  ██▄ ██▄ ██▄ ███ ███ ██  ██  ██  ██  ██  ██  ██  ██  ██
-  0 ██▄ ██▄ ███ ███ ███ ███ ██▄ ██▄ ██▄ ███ ███ ███ ███ ███ ███ ███ ███ ███ ██▄ ██▄ ██▄ ██▄ ██▄ ██▄
-    00  01  02  03  04  05  06  07  08  09  10  11  12  13  14  15  16  17  18  19  20  21  22  23
-```
+Every hour gets one bar per sizing: current (blue), worst case (green) and hour aware (purple). All three are flat across the day, because every sizing racks one capacity and holds it, the hour aware one included - it's sized by the busiest hour rather than by every cluster's peak at once, but the hardware still sits there the other 23 hours. The top of each bar is that sizing's required vCPU from the table.
 
-Current (pink) and worst case (yellow) are flat, because both provision for one worst moment and hold that capacity all day. Hour aware (green) is the only line that moves, and the space above it is what the flat sizings leave idle. The green line's tallest hour is the hour aware figure from the table.
+What moves is the grey at the foot of the bars. That's utilisation, the demand the estate has to serve that hour, and the colour above it is capacity the sizing provisions but doesn't use. Utilisation is one curve rather than three, because the workload doesn't change with the way it's sized, so what separates the sizings is how much colour sits on top. The legend keys the grey separately from the three fills.
 
-Each bar is drawn in two parts. The blue at the bottom is utilisation, the demand that hour, and the pastel above it is capacity the sizing provisions but doesn't use. Utilisation is one curve rather than three, because the workload doesn't change with the way it's sized, so what separates the sizings is how much pastel sits on top. The legend keys the blue separately from the three pastels.
+Without peak windows the hour aware sizing is the worst case, so only two bars are drawn rather than the same one twice.
 
-The y axis is numbered at each peak, in the colour of what it belongs to: one number per sizing and a blue one for the busiest hour of the utilisation curve. Short terminals leave few rows to label, so where two peaks fall in the same row the taller one takes the number.
+The y axis is numbered at the top of each bar, in the colour of what it belongs to, plus a grey one for the busiest hour of the utilisation curve. Short terminals leave few rows to label, so where two of those fall in the same row the taller one takes the number.
 
-The chart needs 76 columns. Below that it says so rather than wrapping the bars out of line with their hours.
+The chart needs one column per sizing per hour plus the axis gutter, so around 78 columns. Below that it says so rather than wrapping the bars out of line with their hours.
 
 ### JSON
 
