@@ -4,7 +4,7 @@ order-management,224,96,24,7,17
 execution-algos,384,160,16,7,17
 smart-order-router,192,80,12,7,17
 pretrade-risk,160,64,10,7,17
-position-keeping,112,48,24,0,24
+position-keeping,112,48,48,0,24
 reference-data,64,28,6,6,9
 research-notebooks,160,72,10,8,19
 tick-store-compaction,512,260,4,17,20
