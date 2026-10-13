@@ -31,7 +31,7 @@ func rootCommand() *cobra.Command {
 		SilenceUsage:  true,
 	}
 
-	cmd.AddCommand(sizeCommand(), profileCommand())
+	cmd.AddCommand(sizeCommand(), profileCommand(), peakCommand())
 
 	return cmd
 }

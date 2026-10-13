@@ -30,17 +30,17 @@ func TestRootCommandHoldsTheSubcommands(t *testing.T) {
 		names = append(names, cmd.Name())
 	}
 
-	for _, want := range []string{"size", "profile"} {
+	for _, want := range []string{"size", "profile", "peak"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("expected a %q subcommand, got %v", want, names)
 		}
 	}
 }
 
-// Both subcommands are useless without a config, so neither should get as far
-// as running with one missing.
+// Every subcommand is useless without a config, so none should get as far as
+// running with one missing.
 func TestSubcommandsRequireAConfig(t *testing.T) {
-	for _, name := range []string{"size", "profile"} {
+	for _, name := range []string{"size", "profile", "peak"} {
 		t.Run(name, func(t *testing.T) {
 			cmd := rootCommand()
 			cmd.SetArgs([]string{name})
@@ -69,7 +69,7 @@ func TestRootCommandPrintsHelp(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	for _, want := range []string{"size", "profile"} {
+	for _, want := range []string{"size", "profile", "peak"} {
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("expected the help to mention %q, got:\n%s", want, b.String())
 		}

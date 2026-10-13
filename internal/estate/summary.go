@@ -132,6 +132,87 @@ func (s Summary) Diversity() float64 {
 	return (s.WorstCase.Peak - s.HourAware.Peak) / s.WorstCase.Peak * 100
 }
 
+// The two ends of the day the hours can be read off: the hours the estate is
+// busiest in, which the sizings are taken from, and the hours it is quietest
+// in, which is where a sizing for the busiest wastes most.
+const (
+	busiest  = true
+	quietest = false
+)
+
+// tiedHours are the hours holding one end of the day, in order. They are found
+// in one pass rather than by searching for a value, which would rely on an
+// exact float comparison to locate the hour it came from. The ties are exact
+// by construction: two hours the same clusters draw the same vcpu in are
+// summed from the same numbers in the same order, so they come out bit for bit
+// identical rather than merely close.
+func (s Summary) tiedHours(wantBusiest bool) []int {
+	found := []int{0}
+
+	for hour, total := range s.Hourly {
+		switch best := s.Hourly[found[0]]; {
+		case total > best == wantBusiest && total != best:
+			found = []int{hour}
+		case total == best && hour != found[0]:
+			found = append(found, hour)
+		}
+	}
+
+	return found
+}
+
+// QuietHours are the hours the estate draws least in, in order. They are the
+// hours a sizing for the busiest hour holds the most capacity nothing is
+// drawing on.
+func (s Summary) QuietHours() []int {
+	return s.tiedHours(quietest)
+}
+
+// VCPUHours is what the estate draws across the whole day rather than in the
+// hour it is busiest, which is the figure a rack is actually paid for.
+func (s Summary) VCPUHours() float64 {
+	var total float64
+	for _, hour := range s.Hourly {
+		total += hour
+	}
+
+	return total
+}
+
+// WorstCaseVCPUHours is what sizing for the sum of the peaks stands up over
+// the same day, which is the worst case held for all 24 hours whether or not
+// anything is drawing on it.
+func (s Summary) WorstCaseVCPUHours() float64 {
+	return s.WorstCase.Peak * HoursPerDay
+}
+
+// IdleVCPUHours is the capacity the worst case racks and nothing draws on. It
+// is the day long version of the peak diversity, and the larger number: the
+// diversity is measured in the one hour the estate is busiest, which is the
+// hour the worst case comes closest to being justified in.
+func (s Summary) IdleVCPUHours() float64 {
+	return s.WorstCaseVCPUHours() - s.VCPUHours()
+}
+
+// IdlePercent is IdleVCPUHours as a share of what the worst case racks.
+func (s Summary) IdlePercent() float64 {
+	if worstCase := s.WorstCaseVCPUHours(); worstCase != 0 {
+		return s.IdleVCPUHours() / worstCase * 100
+	}
+
+	return 0
+}
+
+// MeanUtilisation is how hard a worst case sizing runs across the day, as
+// against Scenario.Utilisation, which measures it in its busiest hour.
+func (s Summary) MeanUtilisation() float64 {
+	if worstCase := s.WorstCaseVCPUHours(); worstCase != 0 {
+		return s.VCPUHours() / worstCase * 100
+	}
+
+	return 0
+}
+
 // Summarise sizes the estate three ways: as it stands, assuming every cluster
 // peaks at once, and hour by hour.
 func Summarise(clusters []Cluster, a Assumptions) Summary {
@@ -153,22 +234,7 @@ func Summarise(clusters []Cluster, a Assumptions) Summary {
 		}
 	}
 
-	// Found in one pass rather than by searching for the maximum value, which
-	// relies on an exact float comparison to locate the hour it came from. The
-	// ties are exact by construction: two hours the same clusters draw the same
-	// vcpu in are summed from the same numbers in the same order, so they come
-	// out bit for bit identical rather than merely close.
-	peakHours := []int{0}
-
-	for hour, total := range s.Hourly {
-		switch peak := s.Hourly[peakHours[0]]; {
-		case total > peak:
-			peakHours = []int{hour}
-		case total == peak && hour != peakHours[0]:
-			peakHours = append(peakHours, hour)
-		}
-	}
-
+	peakHours := s.tiedHours(busiest)
 	peakOfSums := s.Hourly[peakHours[0]]
 
 	// The status quo is sized by what is already racked, not by demand, so it

@@ -5,12 +5,13 @@ Size for the peak of the sum, not the sum of the peaks.
 
 ### Usage
 
-Two subcommands, both reading the same csv.
+Three subcommands, all reading the same csv.
 
 | Command | What it answers |
 | --- | --- |
 | `u9n size` | How much vCPU the estate needs, sized three ways. |
 | `u9n profile` | What the estate draws each hour of the day. |
+| `u9n peak` | How much of the sum of the peaks is never drawn at once. |
 
 #### size
 
@@ -40,6 +41,16 @@ u9n profile --config _examples/quant-fund.csv --base --peak
 | `--peak` | `false` | Show the vcpu the peak windows add on top of the base. |
 
 Pass neither band and both are drawn, since the one thing an empty chart can't be is what you meant.
+
+#### peak
+
+```sh
+u9n peak --config _examples/quant-fund.csv
+```
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--config` | | Path to the csv file containing cluster vcpu data. Required. |
 
 `size --profile` and the `profile` command are different things, which the shared word doesn't help with. The flag prints the consolidated estate's hourly figures as rows under the table. The command draws today's demand as a chart, split into the part that never goes away and the part the peak windows add.
 
@@ -71,10 +82,11 @@ All hours are assumed to be in the same timezone. Normalise to UTC before writin
 
 Example with zero growth.
 
-<!-- u9n:begin --inline -- size --config _examples/quant-fund.csv --headroom 40 -->
 ```sh
 u9n size --config _examples/quant-fund.csv --headroom 40
+```
 
+```text
 Clusters:          14
 Provisioned vCPU:  18576
 Headroom:          40%
@@ -87,14 +99,14 @@ Utilisation    50.11%     71.42%         71.43%
 Peak hours     -          -              20:00, 21:00, 22:00
 Saved vCPU     0 (0.00%)  5544 (29.84%)  11419 (61.47%)
 ```
-<!-- u9n:end -->
 
 Example with 15% growth every year for 3 years.
 
-<!-- u9n:begin --inline -- size --config _examples/quant-fund.csv --headroom 40 --growth 15 --years 3 -->
 ```sh
 u9n size --config _examples/quant-fund.csv --headroom 40 --growth 15 --years 3
+```
 
+```text
 Clusters:          14
 Provisioned vCPU:  18576
 Headroom:          40%
@@ -108,7 +120,6 @@ Utilisation    50.11%     46.97%          46.96%
 Peak hours     -          -               20:00, 21:00, 22:00
 Saved vCPU     0 (0.00%)  -1243 (-6.69%)  7691 (41.40%)
 ```
-<!-- u9n:end -->
 
 **Current** is the status quo. It's sized by what's already racked rather than by demand, so headroom and growth don't move it. It's the baseline the savings are measured against, which is why it always saves nothing.
 
@@ -171,6 +182,20 @@ The chart needs one column an hour plus the axis gutter, so around 30 columns. B
 Each bar is one hour, split in two. **Base** is the vCPU every cluster holds whether or not it's working, which is the same in all 24 hours and so draws as a flat floor. **Peak** is what the clusters inside their peak window add on top, which is the part that moves. Stacked, the two are that hour's whole draw, so the tallest bar is the hour aware peak vCPU from the table.
 
 `--base` and `--peak` pick the bands. Dropping one rescales the chart rather than leaving a gap, so `--peak` on its own fills the height with the uplift instead of stranding it above a floor that isn't drawn. The axis is numbered at the tallest bar and at the top of the base band, since those are the two figures worth reading off it.
+
+### Peak
+
+`u9n peak` charts the two numbers the estate can be sized for, against each other. The sum of the peaks assumes every cluster peaks at the same instant. The peak of the sum is the busiest hour of the day they actually share. Like `profile` it draws demand rather than a sizing, so it carries no headroom and no growth: both numbers scale by the same factor under either, which moves them without moving the gap.
+
+![peak](./assets/images/peak.png)
+
+The top row is the sum of the peaks, drawn whole in the worst case colour. The two under it are that same bar taken apart: the solid part is what the estate is serving at its busiest hour, and the shaded part is capacity bought for peaks that never land in the same hour, which is Avoided, the peak diversity from the table.
+
+Under it, every cluster is drawn as its own peak, biggest first and scaled against the biggest, with the part it contributes at the peak hour filled in and the rest shaded. A row that's almost all shade is a cluster the consolidated estate never pays for twice; a row that's solid is one that's at peak when everything else is. The solid parts add up to the peak of the sum and the whole bars to the sum of the peaks, so the rows account for the gap above them rather than restating it.
+
+Clusters smaller than a fortieth of the biggest one are rounded up to a cell per band, so a sliver reads as a sliver rather than vanishing. Where the day holds its peak for more than one hour, the rows are read off the first of them, and a footnote says which hours those are, since they draw the same total from a different mix of clusters.
+
+Last is the same comparison read across the whole day rather than in the one hour the bars were drawn from, since the busiest hour is the hour either sizing comes closest to being justified in. Each row is what the estate draws at one end of the day, against what both racks hold while it does: in the quant fund the peak of the sum is 45.08% idle at 20:00 but 89.79% idle at 06:00, and 69.80% idle averaged over the 24 hours. A run of hours too long to list is counted instead.
 
 ### JSON
 

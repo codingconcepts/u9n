@@ -228,6 +228,76 @@ func TestDiversity(t *testing.T) {
 	}
 }
 
+// The day long figures are the peak diversity read over 24 hours rather than
+// in the one hour the estate is busiest, which is the hour a worst case rack
+// wastes least of.
+func TestDayLongFigures(t *testing.T) {
+	// Two clusters of 10, each at peak for one hour of the day and at a base
+	// of 1 for the other 23, so the estate draws 11 in two hours and 2 in the
+	// other 22 against a worst case rack of 20.
+	s := Summarise([]Cluster{
+		{Provisioned: 10, Peak: 10, Base: 1, PeakFrom: 1, PeakTo: 2, Windowed: true},
+		{Provisioned: 10, Peak: 10, Base: 1, PeakFrom: 5, PeakTo: 6, Windowed: true},
+	}, Assumptions{Years: 1})
+
+	// 11 + 11 + 22 * 2
+	if exp, got := 66.0, s.VCPUHours(); got != exp {
+		t.Errorf("expected %g vcpu hours, got %g", exp, got)
+	}
+
+	if exp, got := 480.0, s.WorstCaseVCPUHours(); got != exp {
+		t.Errorf("expected %g worst case vcpu hours, got %g", exp, got)
+	}
+
+	if exp, got := 414.0, s.IdleVCPUHours(); got != exp {
+		t.Errorf("expected %g idle vcpu hours, got %g", exp, got)
+	}
+
+	// 414 / 480 and 66 / 480, which are the two sides of the same split.
+	if exp, got := 86.25, s.IdlePercent(); got != exp {
+		t.Errorf("expected %g%% idle, got %g%%", exp, got)
+	}
+
+	// 66 / 480 doesn't land on a float exactly, so the share it is reported as
+	// is only ever good to the two places it is printed to.
+	if exp, got := 13.75, s.MeanUtilisation(); math.Abs(got-exp) > 0.005 {
+		t.Errorf("expected %g%% mean utilisation, got %g%%", exp, got)
+	}
+
+	// The peak is held in the two hours a cluster is at peak in, and the floor
+	// in the 22 hours neither is.
+	if exp := []int{1, 5}; !slices.Equal(s.HourAware.PeakHours, exp) {
+		t.Errorf("expected the peak hours %v, got %v", exp, s.HourAware.PeakHours)
+	}
+
+	if got := len(s.QuietHours()); got != 22 {
+		t.Errorf("expected 22 quiet hours, got %d: %v", got, s.QuietHours())
+	}
+
+	if slices.Contains(s.QuietHours(), 1) || slices.Contains(s.QuietHours(), 5) {
+		t.Errorf("expected the peak hours to be left out of the quiet hours, got %v", s.QuietHours())
+	}
+}
+
+// A day with nothing in it divides by zero on the way to a percentage, so the
+// day long figures have to answer it the way the rest of the summary does.
+func TestDayLongFiguresOfAnEmptyEstate(t *testing.T) {
+	s := Summarise([]Cluster{{Name: "a"}}, Assumptions{Years: 1})
+
+	if got := s.IdlePercent(); got != 0 {
+		t.Errorf("expected idle percent 0, got %g", got)
+	}
+
+	if got := s.MeanUtilisation(); got != 0 {
+		t.Errorf("expected mean utilisation 0, got %g", got)
+	}
+
+	// Every hour draws nothing, so every hour ties at both ends of the day.
+	if got := len(s.QuietHours()); got != HoursPerDay {
+		t.Errorf("expected every hour to be a quiet hour, got %d", got)
+	}
+}
+
 func TestAssumptionsValidate(t *testing.T) {
 	cases := []struct {
 		name        string

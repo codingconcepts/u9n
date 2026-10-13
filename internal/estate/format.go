@@ -12,6 +12,10 @@ func Num(value float64) string {
 	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
+// AllDay names a whole day's worth of hours, which is what a run of every
+// hour there is reads as.
+const AllDay = "all day"
+
 // FormatHour renders an hour of the day.
 func FormatHour(hour int) string {
 	return fmt.Sprintf("%02d:00", hour)
@@ -22,7 +26,7 @@ func FormatHour(hour int) string {
 // and because what it says is that the estate never lets up.
 func FormatHours(hours []int) string {
 	if len(hours) == HoursPerDay {
-		return "all day"
+		return AllDay
 	}
 
 	out := make([]string, 0, len(hours))
