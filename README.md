@@ -28,6 +28,10 @@ u9n size --config _examples/quant-fund.csv --headroom 20 --growth 15 --years 3 -
 | `--profile` | `false` | Print the hourly vcpu profile of the consolidated estate. |
 | `--format` | `table` | Output format, one of `table`, `json` or `graph`. |
 
+<p align="center">
+  <img src="./assets/images/size.png" alt="size" width="400">
+</p>
+
 #### profile
 
 ```sh
@@ -40,7 +44,9 @@ u9n profile --config _examples/quant-fund.csv --base --peak
 | `--base` | `false` | Show the vcpu the estate holds around the clock. |
 | `--peak` | `false` | Show the vcpu the peak windows add on top of the base. |
 
-Pass neither band and both are drawn, since the one thing an empty chart can't be is what you meant.
+<p align="center">
+  <img src="./assets/images/profile.png" alt="profile" width="400">
+</p>
 
 #### peak
 
@@ -53,6 +59,10 @@ u9n peak --config _examples/quant-fund.csv
 | `--config` | | Path to the csv file containing cluster vcpu data. Required. |
 
 `size --profile` and the `profile` command are different things, which the shared word doesn't help with. The flag prints the consolidated estate's hourly figures as rows under the table. The command draws today's demand as a chart, split into the part that never goes away and the part the peak windows add.
+
+<p align="center">
+  <img src="./assets/images/peak.png" alt="peak" width="400">
+</p>
 
 ### Config
 
@@ -159,7 +169,9 @@ Some things the tool deliberately doesn't model, each of which can move the answ
 
 `size --format graph` opens a terminal chart of what each sizing provisions across the day. Press `q` to quit.
 
-![quant-fund](./assets/images/quant-fund.png)
+<p align="center">
+  <img src="./assets/images/size.png" alt="quant-fund" width="400">
+</p>
 
 There's one line per sizing: current (blue), worst case (green) and hour aware (purple), each with a translucent fill under it. All three are flat across the day, because every sizing racks one capacity and holds it, the hour aware one included - it's sized by the busiest hour rather than by every cluster's peak at once, but the hardware still sits there the other 23 hours. Each line sits at that sizing's required vCPU from the table.
 
@@ -187,7 +199,9 @@ Each bar is one hour, split in two. **Base** is the vCPU every cluster holds whe
 
 `u9n peak` charts the two numbers the estate can be sized for, against each other. The sum of the peaks assumes every cluster peaks at the same instant. The peak of the sum is the busiest hour of the day they actually share. Like `profile` it draws demand rather than a sizing, so it carries no headroom and no growth: both numbers scale by the same factor under either, which moves them without moving the gap.
 
-![peak](./assets/images/peak.png)
+<p align="center">
+  <img src="./assets/images/peak.png" alt="peak" width="400">
+</p>
 
 The top row is the sum of the peaks, drawn whole in the worst case colour. The two under it are that same bar taken apart: the solid part is what the estate is serving at its busiest hour, and the shaded part is capacity bought for peaks that never land in the same hour, which is Avoided, the peak diversity from the table.
 
@@ -256,7 +270,9 @@ Profile the day
 u9n profile --config _examples/quant-fund.csv
 ```
 
-![profile](./assets/images/profile.png)
+<p align="center">
+  <img src="./assets/images/profile.png" alt="profile" width="400">
+</p>
 
 Run with 50% headroom (tabular output)
 
@@ -284,5 +300,7 @@ The batch stages are staggered rather than concurrent, which is where the 45% pe
 
 Run with 50% headroom (graph output)
 
-![quant-fund](./assets/images/quant-fund.png)
+<p align="center">
+  <img src="./assets/images/size.png" alt="quant-fund" width="400">
+</p>
 

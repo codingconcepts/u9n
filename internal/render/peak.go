@@ -24,7 +24,7 @@ const (
 	peakOfSumsColumn = "Peak of sums"
 	peakHeading      = "Every cluster at its own peak, versus what they draw together at %s"
 	anyHour          = "any hour of the day"
-	noWindows        = "No peak windows in the config, so every cluster counts as at peak in every hour and there is nothing to avoid."
+	noWindows        = "No peak windows in the config, so every cluster counts as at peak in every hour and there's nothing to avoid."
 	flatDay          = "The estate draws the same in every hour, so every hour is its peak."
 	emptyPeak        = "No vcpu to plot: the estate draws nothing in any hour."
 	spreadHeading    = "What each sizing holds idle, hour by hour (excluding headroom)"
