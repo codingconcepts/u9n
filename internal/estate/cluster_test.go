@@ -95,3 +95,47 @@ func hours(from, to int) []int {
 
 	return out
 }
+
+// The two bands have to sum to what VCPUAt reports, or the stacked chart drawn
+// from them would disagree with every other figure in the tool.
+func TestHourlyDemand(t *testing.T) {
+	clusters := []Cluster{
+		{Name: "windowed", Peak: 10, Base: 2, PeakFrom: 9, PeakTo: 11, Windowed: true},
+		{Name: "wrapping", Peak: 6, Base: 1, PeakFrom: 22, PeakTo: 2, Windowed: true},
+		{Name: "always on", Peak: 4, Base: 4},
+	}
+
+	demand := HourlyDemand(clusters)
+
+	for hour, d := range demand {
+		var want float64
+		for _, c := range clusters {
+			want += c.VCPUAt(hour)
+		}
+
+		if d.Total() != want {
+			t.Errorf("hour %d: expected a total of %v, got %v", hour, want, d.Total())
+		}
+
+		// Every cluster holds its base around the clock, so the floor never
+		// moves whatever the windows are doing.
+		if d.Base != 7 {
+			t.Errorf("hour %d: expected a base of 7, got %v", hour, d.Base)
+		}
+
+		if d.Uplift < 0 {
+			t.Errorf("hour %d: expected no negative uplift, got %v", hour, d.Uplift)
+		}
+	}
+
+	// 09:00 is inside the first cluster's window only, so the uplift is its
+	// peak less its base.
+	if got := demand[9].Uplift; got != 8 {
+		t.Errorf("expected an uplift of 8 at 09:00, got %v", got)
+	}
+
+	// 23:00 is inside the wrapping window only.
+	if got := demand[23].Uplift; got != 5 {
+		t.Errorf("expected an uplift of 5 at 23:00, got %v", got)
+	}
+}

@@ -3,6 +3,7 @@ package render
 import (
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -102,13 +103,13 @@ func TestGraphFitsTheTerminal(t *testing.T) {
 	}
 }
 
-// A terminal too narrow for one column per sizing per hour gets a message
-// rather than a chart whose bars have drifted off their hours.
+// A terminal too narrow for one column an hour gets a message rather than a
+// chart whose lines have drifted off their hours.
 func TestGraphTooNarrowToPlot(t *testing.T) {
 	m := newModel(graphFixture())
 	m.width = m.minWidth() - 1
 
-	if got := m.chart(); !strings.Contains(got, "the chart needs") {
+	if got := m.chart(); !strings.Contains(got, "Needs") {
 		t.Errorf("expected a message about the terminal being too narrow, got %q", got)
 	}
 }
@@ -118,7 +119,7 @@ func TestGraphTooNarrowToPlot(t *testing.T) {
 func TestGraphChartHeight(t *testing.T) {
 	m := newModel(graphFixture())
 
-	cases := map[int]int{0: minChartHeight, 10: minChartHeight, 20: 12, 100: maxChartHeight}
+	cases := map[int]int{0: minChartHeight, 10: minChartHeight, 20: 13, 100: maxChartHeight}
 
 	for height, exp := range cases {
 		m.height = height
@@ -222,27 +223,171 @@ func TestGraphAxisLabelsShareRows(t *testing.T) {
 	}
 }
 
-// The bar is blue while it is inside the demand and the sizing's own fill
-// above it, which is what makes idle capacity readable at a glance.
-func TestGraphBarColour(t *testing.T) {
+// A line claims the row it lands on, whichever fills are stacked behind it,
+// and everything under a line is its own translucent fill. That is what makes
+// idle capacity readable at a glance: the gap between a sizing's line and the
+// utilisation beneath it.
+func TestGraphCell(t *testing.T) {
 	m := newModel(graphFixture())
-	sr := m.series[0]
 
-	// Hour 9 draws 50 of demand, hour 0 only 20.
+	// A 200 axis over 10 rows puts a row every 20 vcpu. Hour 9 draws 50 of
+	// demand and hour 0 only 20, under the hour aware 60, the worst case 96
+	// and the current 200.
+	const height = 10
+
 	cases := []struct {
-		hour    int
-		bandMid float64
-		exp     lipgloss.Color
+		name   string
+		hour   int
+		row    int
+		block  string
+		colour lipgloss.Color
 	}{
-		{hour: 9, bandMid: 10, exp: utilisationColours.fill},
-		{hour: 9, bandMid: 50, exp: utilisationColours.fill},
-		{hour: 9, bandMid: 60, exp: sr.colours.fill},
-		{hour: 0, bandMid: 30, exp: sr.colours.fill},
+		{name: "demand fills the rows under its line", hour: 9, row: 0, block: shade, colour: utilisationColours.fill},
+
+		// The hour aware 60 lands on the same row as the 50 of demand, and the
+		// lower of the two takes it.
+		{name: "the lower of two lines sharing a row", hour: 9, row: 2, block: full, colour: utilisationColours.fill},
+
+		{name: "the lowest fill over the demand", hour: 0, row: 1, block: shade, colour: hourAwareColours.fill},
+		{name: "hour aware line", hour: 0, row: 2, block: full, colour: hourAwareColours.fill},
+		{name: "worst case line", hour: 0, row: 4, block: full, colour: worstCaseColours.fill},
+		{name: "current line at the top", hour: 0, row: height - 1, block: full, colour: currentColours.fill},
+		{name: "nothing above the highest line", hour: 0, row: height, block: " ", colour: ""},
+	}
+
+	// One column an hour, so a column is an hour and the curve passes straight
+	// through the readings.
+	curves := m.curves(1, height)
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			block, colour := m.cell(curves, c.hour, c.row)
+
+			if block != c.block || colour != c.colour {
+				t.Errorf("expected %q in %q, got %q in %q", c.block, c.colour, block, colour)
+			}
+		})
+	}
+}
+
+// Every line takes a whole row, however little of it the value reaches into,
+// so no line reads lighter than another. A partly filled cell leaves the rest
+// of itself to the terminal's own background, which punches a notch through
+// whatever the line is drawn over.
+func TestGraphCellLinesAreWholeBlocks(t *testing.T) {
+	m := newModel(graphFixture())
+
+	const height = 10
+
+	// A line at 1 of a 200 axis barely reaches into row 0, and one at 200
+	// fills row 9 to the top. Both are drawn the same.
+	for _, value := range []float64{1, 185, 200} {
+		sizing := curve{colours: hourAwareColours, columns: m.spans([]float64{value}, height)}
+
+		row, _ := m.lineRow(value, height)
+
+		if block, colour := m.cell([]curve{sizing}, 0, row); block != full || colour != hourAwareColours.fill {
+			t.Errorf("%g: expected %q in %q, got %q in %q", value, full, hourAwareColours.fill, block, colour)
+		}
+	}
+}
+
+// The curve has to pass through the hours it was drawn from, and a sizing
+// that holds one capacity all day has to come out of it flat.
+func TestGraphSmooth(t *testing.T) {
+	m := newModel(graphFixture())
+
+	// An odd number of columns an hour puts one of them on the hour itself.
+	const cell = 3
+
+	curve := smooth(m.used, cell)
+
+	if got := len(curve); got != estate.HoursPerDay*cell {
+		t.Fatalf("expected %d columns, got %d", estate.HoursPerDay*cell, got)
+	}
+
+	for hour, exp := range m.used {
+		if got := curve[hour*cell+cell/2]; math.Abs(got-exp) > 1e-9 {
+			t.Errorf("hour %d: expected the curve through %g, got %g", hour, exp, got)
+		}
+	}
+
+	flat := smooth(m.series[0].values, cell)
+	for col, got := range flat {
+		if got != flat[0] {
+			t.Fatalf("column %d of a flat sizing is %g, expected %g", col, got, flat[0])
+		}
+	}
+}
+
+// A plain spline rounding a peak carries the curve above the busiest hour it
+// was drawn from, which would have the chart claim demand the estate never
+// sees. The monotone one has to stay inside its readings.
+func TestGraphSmoothDoesNotOvershoot(t *testing.T) {
+	m := newModel(graphFixture())
+
+	lowest, highest := slices.Min(m.used[:]), slices.Max(m.used[:])
+
+	for col, got := range smooth(m.used, maxCellWidth) {
+		if got < lowest || got > highest {
+			t.Errorf("column %d is %g, outside the %g to %g the hours gave", col, got, lowest, highest)
+		}
+	}
+}
+
+// A line that climbs a long way between one column and the next has to stay
+// joined up, or it draws as a dotted trail rather than a line.
+func TestGraphSpansJoinUp(t *testing.T) {
+	m := newModel(graphFixture())
+
+	const height = 10
+
+	// The axis tops out at 200, so these are rows 0 and 9 of 10.
+	spans := m.spans([]float64{1, 200, 1}, height)
+
+	for col, s := range spans[:len(spans)-1] {
+		next := spans[col+1]
+
+		if s.hi+1 < next.lo || next.hi+1 < s.lo {
+			t.Errorf("columns %d and %d leave a gap between rows %d-%d and %d-%d", col, col+1, s.lo, s.hi, next.lo, next.hi)
+		}
+	}
+
+	// A level line has nothing to reach for, so it stays on its own row.
+	if level := m.spans([]float64{185, 185}, height); level[0].lo != 9 || level[0].hi != 9 {
+		t.Errorf("expected a level line to stay on row 9, got rows %d-%d", level[0].lo, level[0].hi)
+	}
+}
+
+// A line lands on the topmost row it reaches into, however far into it that
+// is, and an hour of no demand has no line to draw at all.
+func TestGraphLineRow(t *testing.T) {
+	m := newModel(graphFixture())
+
+	const height = 10
+
+	cases := []struct {
+		value float64
+		exp   int
+		ok    bool
+	}{
+		{value: 0, ok: false},
+		{value: 200, exp: 9, ok: true},
+		{value: 185, exp: 9, ok: true},
+		{value: 20, exp: 0, ok: true},
+
+		// A line barely into its row still takes the whole of it.
+		{value: 1, exp: 0, ok: true},
+
+		// Nothing is plotted off the top of the chart.
+		{value: 400, exp: 9, ok: true},
 	}
 
 	for _, c := range cases {
-		if got := m.barColour(sr, c.hour, c.bandMid); got != c.exp {
-			t.Errorf("hour %d at %g: expected %q, got %q", c.hour, c.bandMid, c.exp, got)
+		got, ok := m.lineRow(c.value, height)
+
+		if ok != c.ok || got != c.exp {
+			t.Errorf("%g: expected row %d (%v), got %d (%v)", c.value, c.exp, c.ok, got, ok)
 		}
 	}
 }
@@ -261,13 +406,13 @@ func TestGraphLegend(t *testing.T) {
 	}
 
 	m.width = 200
-	if got := strings.Count(m.header(), "\n"); got != 1 {
-		t.Errorf("expected the legend on one line, got %d lines after the title", got)
+	if got := strings.Count(m.legend(), "\n"); got != 0 {
+		t.Errorf("expected the legend on one line, got %d line breaks", got)
 	}
 
 	m.width = 30
-	if got := strings.Count(m.header(), "\n"); got != len(m.keys()) {
-		t.Errorf("expected one legend entry per line, got %d lines after the title", got)
+	if got := strings.Count(m.legend(), "\n"); got != len(m.keys())-1 {
+		t.Errorf("expected one legend entry per line, got %d line breaks", got)
 	}
 }
 

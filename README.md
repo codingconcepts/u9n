@@ -3,18 +3,43 @@ A simple calculator that determines utilisation of a pre and post virtualised es
 
 ### Usage
 
+Two subcommands, both reading the same csv.
+
+| Command | What it answers |
+| --- | --- |
+| `u9n size` | How much vCPU the estate needs, sized three ways. |
+| `u9n profile` | What the estate draws each hour of the day. |
+
+#### size
+
 ```sh
-u9n --config _examples/quant-fund.csv --headroom 20 --growth 15 --years 3 --profile
+u9n size --config _examples/quant-fund.csv --headroom 20 --growth 15 --years 3 --profile
 ```
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--config` | | Path to the csv file containing cluster vcpu data. |
+| `--config` | | Path to the csv file containing cluster vcpu data. Required. |
 | `--headroom` | `20` | Percentage of spare capacity to add on top of peak utilisation. |
 | `--growth` | `0` | Expected annual growth in vcpu demand, as a percentage. |
 | `--years` | `1` | Number of years to compound growth over. |
 | `--profile` | `false` | Print the hourly vcpu profile of the consolidated estate. |
 | `--format` | `table` | Output format, one of `table`, `json` or `graph`. |
+
+#### profile
+
+```sh
+u9n profile --config _examples/quant-fund.csv --base --peak
+```
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--config` | | Path to the csv file containing cluster vcpu data. Required. |
+| `--base` | `false` | Show the vcpu the estate holds around the clock. |
+| `--peak` | `false` | Show the vcpu the peak windows add on top of the base. |
+
+Pass neither band and both are drawn, since the one thing an empty chart can't be is what you meant.
+
+`size --profile` and the `profile` command are different things, which the shared word doesn't help with. The flag prints the consolidated estate's hourly figures as rows under the table. The command draws today's demand as a chart, split into the part that never goes away and the part the peak windows add.
 
 ### Config
 
@@ -44,40 +69,44 @@ All hours are assumed to be in the same timezone. Normalise to UTC before writin
 
 Example with zero growth.
 
+<!-- u9n:begin --inline -- size --config _examples/quant-fund.csv --headroom 40 -->
 ```sh
-u9n --config _examples/quant-fund.csv --headroom 40
+u9n size --config _examples/quant-fund.csv --headroom 40
 
-Clusters:          15
-Provisioned vCPU:  726
+Clusters:          14
+Provisioned vCPU:  18576
 Headroom:          40%
-Peak diversity:    22.81%
+Peak diversity:    45.08%
 
-               Current    Worst case    Hour aware
-Required vCPU  726        369           285
-Peak vCPU      263        263           203
-Utilisation    36.23%     71.27%        71.23%
-Peak hour      -          -             13:00
-Saved vCPU     0 (0.00%)  357 (49.17%)  441 (60.74%)
+               Current    Worst case     Hour aware
+Required vCPU  18576      13032          7157
+Peak vCPU      9308       9308           5112
+Utilisation    50.11%     71.42%         71.43%
+Peak hour      -          -              20:00
+Saved vCPU     0 (0.00%)  5544 (29.84%)  11419 (61.47%)
 ```
+<!-- u9n:end -->
 
 Example with 15% growth every year for 3 years.
 
+<!-- u9n:begin --inline -- size --config _examples/quant-fund.csv --headroom 40 --growth 15 --years 3 -->
 ```sh
-u9n --config _examples/quant-fund.csv --headroom 40 --growth 15 --years 3
+u9n size --config _examples/quant-fund.csv --headroom 40 --growth 15 --years 3
 
-Clusters:          15
-Provisioned vCPU:  726
+Clusters:          14
+Provisioned vCPU:  18576
 Headroom:          40%
 Growth:            15% a year over 3 years (52.09% in total)
-Peak diversity:    22.81%
+Peak diversity:    45.08%
 
-               Current    Worst case    Hour aware
-Required vCPU  726        560           433
-Peak vCPU      263        263           203
-Utilisation    36.23%     46.96%        46.88%
-Peak hour      -          -             13:00
-Saved vCPU     0 (0.00%)  166 (22.87%)  293 (40.36%)
+               Current    Worst case      Hour aware
+Required vCPU  18576      19819           10885
+Peak vCPU      9308       9308            5112
+Utilisation    50.11%     46.97%          46.96%
+Peak hour      -          -               20:00
+Saved vCPU     0 (0.00%)  -1243 (-6.69%)  7691 (41.40%)
 ```
+<!-- u9n:end -->
 
 **Current** is the status quo. It's sized by what's already racked rather than by demand, so headroom and growth don't move it. It's the baseline the savings are measured against, which is why it always saves nothing.
 
@@ -92,6 +121,8 @@ Required vCPU is the peak figure, grown by `--growth` compounded over `--years`,
 Peak vCPU is always a peak and never an average, but which peak depends on the column. Current and worst case both add up every cluster's own peak. Hour aware takes the busiest single hour of the overlaid windows, which is why it's lower. Both are today's demand, so growth shows up in the required row only.
 
 Utilisation is peak demand against the capacity that sizing stands up, not against today's estate. A consolidated sizing runs hotter than the estate it replaces, and that's the point - dividing by hardware you'd no longer own would hide it. Headroom is what holds the figure below 100%.
+
+Saved vCPU goes negative when a sizing asks for more than is already racked, as the worst case does in the growth example above. That isn't an error, it's the answer: at that headroom and that much growth, consolidating on the assumption every cluster peaks together would cost capacity rather than release it. Only the hour aware column still saves, and only because the peaks are staggered.
 
 ### Reading the result
 
@@ -113,60 +144,72 @@ Some things the tool deliberately doesn't model, each of which can move the answ
 
 ### Graph
 
-`--format graph` opens a terminal chart of what each sizing provisions across the day. Press `q` to quit.
+`size --format graph` opens a terminal chart of what each sizing provisions across the day. Press `q` to quit.
 
 ![quant-fund](./assets/images/quant-fund.png)
 
-Every hour gets one bar per sizing: current (blue), worst case (green) and hour aware (purple). All three are flat across the day, because every sizing racks one capacity and holds it, the hour aware one included - it's sized by the busiest hour rather than by every cluster's peak at once, but the hardware still sits there the other 23 hours. The top of each bar is that sizing's required vCPU from the table.
+There's one line per sizing: current (blue), worst case (green) and hour aware (purple), each with a translucent fill under it. All three are flat across the day, because every sizing racks one capacity and holds it, the hour aware one included - it's sized by the busiest hour rather than by every cluster's peak at once, but the hardware still sits there the other 23 hours. Each line sits at that sizing's required vCPU from the table.
 
-What moves is the grey at the foot of the bars. That's utilisation, the demand the estate has to serve that hour, and the colour above it is capacity the sizing provisions but doesn't use. Utilisation is one curve rather than three, because the workload doesn't change with the way it's sized, so what separates the sizings is how much colour sits on top. The legend keys the grey separately from the three fills.
+What moves is the grey line along the bottom. That's utilisation, the demand the estate has to serve that hour, and the band between it and a sizing's line is capacity that sizing provisions but doesn't use. Utilisation is one curve rather than three, because the workload doesn't change with the way it's sized, so what separates the sizings is how much fill sits on top. The legend keys the grey separately from the three fills.
 
-Without peak windows the hour aware sizing is the worst case, so only two bars are drawn rather than the same one twice.
+It's a curve rather than a staircase: a monotone cubic runs through the 24 hourly readings, wrapping from hour 23 back into hour 0 so the line doesn't flatten off against either edge. Monotone rather than a plain spline because a spline overshoots, and a demand curve bulging above the busiest hour it was drawn from would claim load the estate never sees.
 
-The y axis is numbered at the top of each bar, in the colour of what it belongs to, plus a grey one for the busiest hour of the utilisation curve. Short terminals leave few rows to label, so where two of those fall in the same row the taller one takes the number.
+The fills are translucent so the lines still read where they cross: the lower of two lines sharing a row keeps the row, and a fill never hides a line drawn under it. Every line takes a whole row, however little of it the value reaches into, so no line reads lighter than another for landing where it happens to land.
 
-The chart needs one column per sizing per hour plus the axis gutter, so around 78 columns. Below that it says so rather than wrapping the bars out of line with their hours.
+Without peak windows the hour aware sizing is the worst case, so only two lines are drawn rather than the same one twice.
+
+The y axis is numbered at each line, in the colour of what it belongs to, plus a grey one for the busiest hour of the utilisation curve. Short terminals leave few rows to label, so where two of those fall in the same row the taller one takes the number.
+
+The chart needs one column an hour plus the axis gutter, so around 30 columns. Below that it says so rather than wrapping the lines out of line with their hours. Above it, the hours widen to five columns each.
+
+### Profile
+
+`u9n profile` charts what the estate actually draws each hour, 00:00 to 23:00, as a stacked bar a day wide. Unlike the graph it isn't a sizing, so it carries no headroom and no growth, and it prints and exits rather than opening a terminal app.
+
+Each bar is one hour, split in two. **Base** is the vCPU every cluster holds whether or not it's working, which is the same in all 24 hours and so draws as a flat floor. **Peak** is what the clusters inside their peak window add on top, which is the part that moves. Stacked, the two are that hour's whole draw, so the tallest bar is the hour aware peak vCPU from the table.
+
+`--base` and `--peak` pick the bands. Dropping one rescales the chart rather than leaving a gap, so `--peak` on its own fills the height with the uplift instead of stranding it above a floor that isn't drawn. The axis is numbered at the tallest bar and at the top of the base band, since those are the two figures worth reading off it.
 
 ### JSON
 
-`--format json` emits the same figures plus per-cluster detail, for piping into other tools. The hourly profile is always included, so `--profile` affects table output only.
+`size --format json` emits the same figures plus per-cluster detail, for piping into other tools. The hourly profile is always included, so `--profile` affects table output only.
 
 ```sh
-u9n --config _examples/quant-fund.csv --format json | jq '.scenarios[] | {key, required_vcpu}'
+u9n size --config _examples/quant-fund.csv --format json | jq '.scenarios[] | {key, required_vcpu}'
 ```
 
 ```json
 {
-  "clusters": 15,
-  "provisioned_vcpu": 726,
+  "clusters": 14,
+  "provisioned_vcpu": 18576,
   "headroom_percent": 20,
   "growth_percent": 0,
   "years": 1,
   "growth_factor": 1,
   "windowed": true,
-  "peak_diversity_percent": 22.813688212927758,
+  "peak_diversity_percent": 45.07950150408251,
   "scenarios": [
     {
       "key": "hour_aware",
       "label": "Hour aware",
-      "peak_vcpu": 203,
-      "utilisation_percent": 83.19672131147541,
-      "peak_hour": 13,
-      "required_vcpu": 244,
-      "saved_vcpu": 482,
-      "saved_percent": 66.39118457300276
+      "peak_vcpu": 5112,
+      "utilisation_percent": 83.32518337408314,
+      "peak_hour": 20,
+      "required_vcpu": 6135,
+      "saved_vcpu": 12441,
+      "saved_percent": 66.97351421188631
     }
   ],
-  "hourly": [{ "hour": 0, "vcpu": 85 }],
+  "hourly": [{ "hour": 0, "vcpu": 2116 }],
   "cluster_detail": [
     {
-      "name": "crm-app",
-      "provisioned_vcpu": 24,
-      "peak_vcpu": 18,
-      "base_vcpu": 4,
-      "peak_from": 9,
+      "name": "market-data-feed",
+      "provisioned_vcpu": 512,
+      "peak_vcpu": 240,
+      "base_vcpu": 160,
+      "peak_from": 7,
       "peak_to": 17,
-      "peak_hour_contribution_vcpu": 18
+      "peak_hour_contribution_vcpu": 160
     }
   ]
 }
@@ -176,287 +219,43 @@ u9n --config _examples/quant-fund.csv --format json | jq '.scenarios[] | {key, r
 
 ### Examples
 
-u9n comes with 10 examples with varying workloads and peaks.
+u9n comes with 10 examples with varying workloads and peaks. We'll explore just one (quant-fund).
 
-##### Game studio
+A trading day that barely registers compared to a nightly batch chain that runs the estate flat out.
 
-Run with 40% headroom (tabular output)
-
-```sh
-u9n --config _examples/game-studio.csv --headroom 40
-```
-
-Output
-
-```
-Clusters:          11
-Provisioned vCPU:  4288
-Headroom:          40%
-Peak diversity:    22.00%
-
-               Current    Worst case     Hour aware
-Required vCPU  4288       2686           2095
-Peak vCPU      1918       1918           1496
-Utilisation    44.73%     71.41%         71.41%
-Peak hour      -          -              20:00
-Saved vCPU     0 (0.00%)  1602 (37.36%)  2193 (51.14%)
-```
-
-Run with 40% headroom (graph output)
-
-![game-studio](./assets/images/game-studio.png)
-
-##### Hospital EHR
-
-Run with 40% headroom (tabular output)
+Profile the day
 
 ```sh
-u9n --config _examples/hospital-ehr.csv --headroom 40
+u9n profile --config _examples/quant-fund.csv
 ```
 
-Output
+![profile](./assets/images/profile.png)
 
-```
-Clusters:          12
-Provisioned vCPU:  3136
-Headroom:          40%
-Peak diversity:    19.35%
-
-               Current    Worst case     Hour aware
-Required vCPU  3136       1563           1260
-Peak vCPU      1116       1116           900
-Utilisation    35.59%     71.40%         71.43%
-Peak hour      -          -              08:00
-Saved vCPU     0 (0.00%)  1573 (50.16%)  1876 (59.82%)
-```
-
-Run with 40% headroom (graph output)
-
-![hospital-ehr](./assets/images/hospital-ehr.png)
-
-##### Logistics fleet
-
-Run with 40% headroom (tabular output)
+Run with 50% headroom (tabular output)
 
 ```sh
-u9n --config _examples/logistics-fleet.csv --headroom 40
-```
-
-Output
-
-```
-Clusters:          11
-Provisioned vCPU:  3936
-Headroom:          40%
-Peak diversity:    18.63%
-
-               Current    Worst case     Hour aware
-Required vCPU  3936       2000           1627
-Peak vCPU      1428       1428           1162
-Utilisation    36.28%     71.40%         71.42%
-Peak hour      -          -              05:00
-Saved vCPU     0 (0.00%)  1936 (49.19%)  2309 (58.66%)
-```
-
-Run with 40% headroom (graph output)
-
-![logistics-fleet](./assets/images/logistics-fleet.png)
-
-##### Media streaming
-
-Run with 40% headroom (tabular output)
-
-```sh
-u9n --config _examples/media-streaming.csv --headroom 40
-```
-
-Output
-
-```
-Clusters:          12
-Provisioned vCPU:  5312
-Headroom:          40%
-Peak diversity:    31.43%
-
-               Current    Worst case     Hour aware
-Required vCPU  5312       2949           2022
-Peak vCPU      2106       2106           1444
-Utilisation    39.65%     71.41%         71.41%
-Peak hour      -          -              18:00
-Saved vCPU     0 (0.00%)  2363 (44.48%)  3290 (61.94%)
-```
-
-Run with 40% headroom (graph output)
-
-![media-streaming](./assets/images/media-streaming.png)
-
-##### Quant fund
-
-A trading day that barely registers, followed by a nightly batch chain that runs the estate flat out. Each stage hands off to the next, so the grid that dominates the bill is idle for twenty one hours out of twenty four.
-
-Run with 40% headroom (tabular output)
-
-```sh
-u9n --config _examples/quant-fund.csv --headroom 40
-```
-
-Output
-
-```
-Clusters:          15
-Provisioned vCPU:  24000
-Headroom:          40%
-Peak diversity:    45.00%
-
-               Current    Worst case      Hour aware
-Required vCPU  24000      13054           7180
-Peak vCPU      9324       9324            5128
-Utilisation    38.85%     71.43%          71.42%
-Peak hour      -          -               20:00
-Saved vCPU     0 (0.00%)  10946 (45.61%)  16820 (70.08%)
-```
-
-The batch stages are staggered rather than concurrent, which is where the 45% peak diversity comes from, and it's also the assumption most worth testing. Run the same config with the stages overlapping and the hour aware figure converges on the worst case.
-
-Run with 40% headroom (graph output)
-
-![quant-fund](./assets/images/quant-fund.png)
-
-##### Retail bank
-
-Run with 40% headroom (tabular output)
-
-```sh
-u9n --config _examples/retail-bank.csv --headroom 40
+u9n size --config _examples/quant-fund.csv --headroom 50
 ```
 
 Output
 
 ```
 Clusters:          14
-Provisioned vCPU:  5440
-Headroom:          40%
-Peak diversity:    31.93%
+Provisioned vCPU:  18576
+Headroom:          50%
+Peak diversity:    45.08%
 
                Current    Worst case     Hour aware
-Required vCPU  5440       2798           1904
-Peak vCPU      1998       1998           1360
-Utilisation    36.73%     71.41%         71.43%
-Peak hour      -          -              02:00
-Saved vCPU     0 (0.00%)  2642 (48.57%)  3536 (65.00%)
+Required vCPU  18576      13962          7668
+Peak vCPU      9308       9308           5112
+Utilisation    50.11%     66.67%         66.67%
+Peak hour      -          -              20:00
+Saved vCPU     0 (0.00%)  4614 (24.84%)  10908 (58.72%)
 ```
 
-Run with 40% headroom (graph output)
+The batch stages are staggered rather than concurrent, which is where the 45% peak diversity comes from, and it's also the assumption most worth testing. Run the same config with the stages overlapping and the hour aware figure converges on the worst case.
 
-![retail-bank](./assets/images/retail-bank.png)
+Run with 50% headroom (graph output)
 
-##### Retail ecommerce
+![quant-fund](./assets/images/quant-fund.png)
 
-Run with 40% headroom (tabular output)
-
-```sh
-u9n --config _examples/retail-ecommerce.csv --headroom 40
-```
-
-Output
-
-```
-Clusters:          15
-Provisioned vCPU:  3024
-Headroom:          40%
-Peak diversity:    28.81%
-
-               Current    Worst case     Hour aware
-Required vCPU  3024       1487           1059
-Peak vCPU      1062       1062           756
-Utilisation    35.12%     71.42%         71.39%
-Peak hour      -          -              10:00
-Saved vCPU     0 (0.00%)  1537 (50.83%)  1965 (64.98%)
-```
-
-Run with 40% headroom (graph output)
-
-![retail-ecommerce](./assets/images/retail-ecommerce.png)
-
-##### SaaS platform
-
-Run with 40% headroom (tabular output)
-
-```sh
-u9n --config _examples/saas-platform.csv --headroom 40
-```
-
-Output
-
-```
-Clusters:          15
-Provisioned vCPU:  3616
-Headroom:          40%
-Peak diversity:    17.51%
-
-               Current    Worst case     Hour aware
-Required vCPU  3616       1935           1596
-Peak vCPU      1382       1382           1140
-Utilisation    38.22%     71.42%         71.43%
-Peak hour      -          -              15:00
-Saved vCPU     0 (0.00%)  1681 (46.49%)  2020 (55.86%)
-```
-
-Run with 40% headroom (graph output)
-
-![saas-platform](./assets/images/saas-platform.png)
-
-##### Telco Core
-
-Run with 40% headroom (tabular output)
-
-```sh
-u9n --config _examples/telco-core.csv --headroom 40
-```
-
-Output
-
-```
-Clusters:          12
-Provisioned vCPU:  6176
-Headroom:          40%
-
-               Current    Worst case     Hour aware
-Required vCPU  6176       3380           3380
-Peak vCPU      2414       2414           2414
-Utilisation    39.09%     71.42%         71.42%
-Peak hour      -          -              00:00
-Saved vCPU     0 (0.00%)  2796 (45.27%)  2796 (45.27%)
-```
-
-Run with 40% headroom (graph output)
-
-![telco-core](./assets/images/telco-core.png)
-
-##### University campus
-
-Run with 40% headroom (tabular output)
-
-```sh
-u9n --config _examples/university-campus.csv --headroom 40
-```
-
-Output
-
-```
-Clusters:          12
-Provisioned vCPU:  4288
-Headroom:          40%
-Peak diversity:    20.11%
-
-               Current    Worst case     Hour aware
-Required vCPU  4288       2576           2058
-Peak vCPU      1840       1840           1470
-Utilisation    42.91%     71.43%         71.43%
-Peak hour      -          -              01:00
-Saved vCPU     0 (0.00%)  1712 (39.93%)  2230 (52.01%)
-```
-
-Run with 40% headroom (graph output)
-
-![university-campus](./assets/images/university-campus.png)

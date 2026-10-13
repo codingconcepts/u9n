@@ -41,3 +41,40 @@ func (c Cluster) VCPUAt(hour int) float64 {
 
 	return c.Base
 }
+
+// Demand is one hour's draw, split into the part the estate holds around the
+// clock and the part its peak windows add on top.
+type Demand struct {
+	Base   float64
+	Uplift float64
+}
+
+// Total is the whole draw for the hour.
+func (d Demand) Total() float64 {
+	return d.Base + d.Uplift
+}
+
+// HourlyDemand splits every hour of the day into base and peak uplift. Each
+// cluster draws its base around the clock, and the clusters inside their peak
+// window add the difference between peak and base on top, so the two parts sum
+// to what VCPUAt reports. Parsing rejects a base above its own peak, so the
+// uplift is never negative.
+//
+// Without peak windows every cluster counts as permanently at peak, so the
+// uplift is the same in all 24 hours and the split says only how much of the
+// draw is the floor.
+func HourlyDemand(clusters []Cluster) [HoursPerDay]Demand {
+	var out [HoursPerDay]Demand
+
+	for _, c := range clusters {
+		for hour := range out {
+			out[hour].Base += c.Base
+
+			if c.InPeak(hour) {
+				out[hour].Uplift += c.Peak - c.Base
+			}
+		}
+	}
+
+	return out
+}
