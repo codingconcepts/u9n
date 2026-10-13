@@ -1,5 +1,7 @@
 # u9n
-A simple calculator that determines utilisation of a pre and post virtualised estate.
+Size for the peak of the sum, not the sum of the peaks.
+
+...and then size for less than that.
 
 ### Usage
 
