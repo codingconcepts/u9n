@@ -16,7 +16,7 @@ Three subcommands, all reading the same csv.
 #### size
 
 ```sh
-u9n size --config _examples/quant-fund.csv --headroom 20 --growth 15 --years 3 --profile
+u9n size --config _examples/quant-fund.csv --headroom 20 --growth 15 --years 3
 ```
 
 | Flag | Default | Description |
@@ -25,7 +25,6 @@ u9n size --config _examples/quant-fund.csv --headroom 20 --growth 15 --years 3 -
 | `--headroom` | `20` | Percentage of spare capacity to add on top of peak utilisation. |
 | `--growth` | `0` | Expected annual growth in vcpu demand, as a percentage. |
 | `--years` | `1` | Number of years to compound growth over. |
-| `--profile` | `false` | Print the hourly vcpu profile of the consolidated estate. |
 | `--format` | `table` | Output format, one of `table`, `json` or `graph`. |
 
 <p align="center">
@@ -35,7 +34,7 @@ u9n size --config _examples/quant-fund.csv --headroom 20 --growth 15 --years 3 -
 #### profile
 
 ```sh
-u9n profile --config _examples/quant-fund.csv --base --peak
+u9n profile --config _examples/quant-fund.csv --base --peak --format graph
 ```
 
 | Flag | Default | Description |
@@ -43,6 +42,7 @@ u9n profile --config _examples/quant-fund.csv --base --peak
 | `--config` | | Path to the csv file containing cluster vcpu data. Required. |
 | `--base` | `false` | Show the vcpu the estate holds around the clock. |
 | `--peak` | `false` | Show the vcpu the peak windows add on top of the base. |
+| `--format` | `table` | Output format, one of `table`, `json` or `graph`. |
 
 <p align="center">
   <img src="./assets/images/profile.png" alt="profile" width="400">
@@ -57,8 +57,6 @@ u9n peak --config _examples/quant-fund.csv
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--config` | | Path to the csv file containing cluster vcpu data. Required. |
-
-`size --profile` and the `profile` command are different things, which the shared word doesn't help with. The flag prints the consolidated estate's hourly figures as rows under the table. The command draws today's demand as a chart, split into the part that never goes away and the part the peak windows add.
 
 <p align="center">
   <img src="./assets/images/peak.png" alt="peak" width="400">
@@ -90,28 +88,6 @@ All hours are assumed to be in the same timezone. Normalise to UTC before writin
 
 ### Output
 
-Example with zero growth.
-
-```sh
-u9n size --config _examples/quant-fund.csv --headroom 40
-```
-
-```text
-Clusters:          14
-Provisioned vCPU:  18576
-Headroom:          40%
-Peak diversity:    45.08%
-
-               Current    Worst case     Hour aware
-Required vCPU  18576      13032          7157
-Peak vCPU      9308       9308           5112
-Utilisation    50.11%     71.42%         71.43%
-Peak hours     -          -              20:00, 21:00, 22:00
-Saved vCPU     0 (0.00%)  5544 (29.84%)  11419 (61.47%)
-```
-
-Example with 15% growth every year for 3 years.
-
 ```sh
 u9n size --config _examples/quant-fund.csv --headroom 40 --growth 15 --years 3
 ```
@@ -131,21 +107,19 @@ Peak hours     -          -               20:00, 21:00, 22:00
 Saved vCPU     0 (0.00%)  -1243 (-6.69%)  7691 (41.40%)
 ```
 
-**Current** is the status quo. It's sized by what's already racked rather than by demand, so headroom and growth don't move it. It's the baseline the savings are measured against, which is why it always saves nothing.
+**Current** is the status quo, sized by what's already racked rather than by demand, so headroom and growth don't move it. It's the baseline the savings are measured against.
 
-**Worst case** is the sum of every cluster's peak. It assumes they all peak at the same instant, whenever that is, so it has no peak hour.
+**Worst case** is the sum of every cluster's peak. It assumes they all peak at the same instant, so it has no peak hour.
 
-**Hour aware** walks the 24 hour clock, adds up what every cluster draws in each hour, and takes the busiest. A day often holds its peak for a stretch rather than a single hour, so every hour tied for the busiest is listed. Without peak windows in the config every hour is identical, so the column repeats the worst case and the peak hours read `all day`.
+**Hour aware** walks the 24 hour clock, adds up what every cluster draws in each hour, and takes the busiest. Every hour tied for the busiest is listed. Without peak windows in the config every hour is identical, so the column repeats the worst case and the peak hours read `all day`.
 
-**Peak diversity** is the share of the worst case total avoided by peaks falling in different hours. It's the consolidation win.
+**Peak diversity** is the share of the worst case total avoided by peaks falling in different hours.
 
-Required vCPU is the peak figure, grown by `--growth` compounded over `--years`, plus `--headroom`, rounded up.
+Required vCPU is the peak figure, grown by `--growth` compounded over `--years`, plus `--headroom`, rounded up. Peak vCPU is today's demand, so growth shows up in the required row only.
 
-Peak vCPU is always a peak and never an average, but which peak depends on the column. Current and worst case both add up every cluster's own peak. Hour aware takes the busiest single hour of the overlaid windows, which is why it's lower. Both are today's demand, so growth shows up in the required row only.
+Utilisation is peak demand against the capacity that sizing stands up, not against today's estate. Headroom is what holds the figure below 100%.
 
-Utilisation is peak demand against the capacity that sizing stands up, not against today's estate. A consolidated sizing runs hotter than the estate it replaces, and that's the point - dividing by hardware you'd no longer own would hide it. Headroom is what holds the figure below 100%.
-
-Saved vCPU goes negative when a sizing asks for more than is already racked, as the worst case does in the growth example above. That isn't an error, it's the answer: at that headroom and that much growth, consolidating on the assumption every cluster peaks together would cost capacity rather than release it. Only the hour aware column still saves, and only because the peaks are staggered.
+Saved vCPU goes negative when a sizing asks for more than is already racked, as the worst case does above: at that headroom and that much growth, consolidating on the assumption every cluster peaks together would cost capacity rather than release it.
 
 ### Reading the result
 
@@ -169,51 +143,49 @@ Some things the tool deliberately doesn't model, each of which can move the answ
 
 `size --format graph` opens a terminal chart of what each sizing provisions across the day. Press `q` to quit.
 
-<p align="center">
-  <img src="./assets/images/size.png" alt="quant-fund" width="400">
-</p>
+One line per sizing: current (blue), worst case (green) and hour aware (purple), each flat across the day at that sizing's required vCPU, because every sizing racks one capacity and holds it. The grey line along the bottom is utilisation, the demand the estate serves that hour, and the band between it and a sizing's line is capacity provisioned but not used.
 
-There's one line per sizing: current (blue), worst case (green) and hour aware (purple), each with a translucent fill under it. All three are flat across the day, because every sizing racks one capacity and holds it, the hour aware one included - it's sized by the busiest hour rather than by every cluster's peak at once, but the hardware still sits there the other 23 hours. Each line sits at that sizing's required vCPU from the table.
-
-What moves is the grey line along the bottom. That's utilisation, the demand the estate has to serve that hour, and the band between it and a sizing's line is capacity that sizing provisions but doesn't use. Utilisation is one curve rather than three, because the workload doesn't change with the way it's sized, so what separates the sizings is how much fill sits on top. The legend keys the grey separately from the three fills.
-
-It's a curve rather than a staircase: a monotone cubic runs through the 24 hourly readings, wrapping from hour 23 back into hour 0 so the line doesn't flatten off against either edge. Monotone rather than a plain spline because a spline overshoots, and a demand curve bulging above the busiest hour it was drawn from would claim load the estate never sees.
-
-The fills are translucent so the lines still read where they cross: the lower of two lines sharing a row keeps the row, and a fill never hides a line drawn under it. Every line takes a whole row, however little of it the value reaches into, so no line reads lighter than another for landing where it happens to land.
-
-Without peak windows the hour aware sizing is the worst case, so only two lines are drawn rather than the same one twice.
-
-The y axis is numbered at each line, in the colour of what it belongs to, plus a grey one for the busiest hour of the utilisation curve. Short terminals leave few rows to label, so where two of those fall in the same row the taller one takes the number.
-
-The chart needs one column an hour plus the axis gutter, so around 30 columns. Below that it says so rather than wrapping the lines out of line with their hours. Above it, the hours widen to five columns each.
+The y axis is numbered at each line, in the colour of what it belongs to, plus a grey one for the busiest hour. Without peak windows the hour aware sizing is the worst case, so only two lines are drawn. The chart needs around 30 columns.
 
 ### Profile
 
-`u9n profile` charts what the estate actually draws each hour, 00:00 to 23:00, as a stacked bar a day wide. Unlike the graph it isn't a sizing, so it carries no headroom and no growth, and it prints and exits rather than opening a terminal app.
+`u9n profile` reports what the estate actually draws each hour, 00:00 to 23:00. It isn't a sizing, so it carries no headroom and no growth.
 
-Each bar is one hour, split in two. **Base** is the vCPU every cluster holds whether or not it's working, which is the same in all 24 hours and so draws as a flat floor. **Peak** is what the clusters inside their peak window add on top, which is the part that moves. Stacked, the two are that hour's whole draw, so the tallest bar is the hour aware peak vCPU from the table.
+**Base** is the vCPU every cluster holds whether or not it's working, the same in all 24 hours. **Peak** is what the clusters inside their peak window add on top. Together the two are that hour's whole draw, so the busiest hour is the hour aware peak vCPU from the table.
 
-`--base` and `--peak` pick the bands. Dropping one rescales the chart rather than leaving a gap, so `--peak` on its own fills the height with the uplift instead of stranding it above a floor that isn't drawn. The axis is numbered at the tallest bar and at the top of the base band, since those are the two figures worth reading off it.
+`--base` and `--peak` pick the bands. Dropping one rescales the output rather than leaving a gap.
+
+`--format table`, the default, prints a row an hour: an ascii bar scaled against the busiest hour of the day, the vCPU that hour draws, and a marker against every hour tied for the busiest.
+
+```text
+Hourly profile
+
+00:00  #################                         2116
+...
+19:00  #####                                     580
+20:00  ########################################  5112 <- peak
+21:00  ########################################  5112 <- peak
+22:00  ########################################  5112 <- peak
+23:00  #################                         2116
+```
+
+`--format graph` draws the same day as a stacked bar a day wide, the base band under the peak band. The chart is 16 rows tall, so an hour just short of the peak would round into the same top row and read as a tie: the top row is kept for the busiest hours instead, and a `▼` over each of them says which they are. A day that draws the same in every hour has no busiest hour to point at, so it goes unmarked.
+
+`--format json` emits each hour split into the two bands, for piping into other tools.
 
 ### Peak
 
-`u9n peak` charts the two numbers the estate can be sized for, against each other. The sum of the peaks assumes every cluster peaks at the same instant. The peak of the sum is the busiest hour of the day they actually share. Like `profile` it draws demand rather than a sizing, so it carries no headroom and no growth: both numbers scale by the same factor under either, which moves them without moving the gap.
+`u9n peak` charts the sum of the peaks against the peak of the sum. Like `profile` it draws demand rather than a sizing, so it carries no headroom and no growth: both numbers scale by the same factor under either, which moves them without moving the gap.
 
-<p align="center">
-  <img src="./assets/images/peak.png" alt="peak" width="400">
-</p>
+The top row is the sum of the peaks. The two under it are that same bar taken apart: the solid part is what the estate serves at its busiest hour, the shaded part is capacity bought for peaks that never land in the same hour (Avoided, the peak diversity from the table).
 
-The top row is the sum of the peaks, drawn whole in the worst case colour. The two under it are that same bar taken apart: the solid part is what the estate is serving at its busiest hour, and the shaded part is capacity bought for peaks that never land in the same hour, which is Avoided, the peak diversity from the table.
+Under it, every cluster is drawn as its own peak, biggest first, with the part it contributes at the peak hour filled in and the rest shaded. A row that's almost all shade is a cluster the consolidated estate never pays for twice. Where the day holds its peak for more than one hour, the rows are read off the first of them and a footnote says which hours those are.
 
-Under it, every cluster is drawn as its own peak, biggest first and scaled against the biggest, with the part it contributes at the peak hour filled in and the rest shaded. A row that's almost all shade is a cluster the consolidated estate never pays for twice; a row that's solid is one that's at peak when everything else is. The solid parts add up to the peak of the sum and the whole bars to the sum of the peaks, so the rows account for the gap above them rather than restating it.
-
-Clusters smaller than a fortieth of the biggest one are rounded up to a cell per band, so a sliver reads as a sliver rather than vanishing. Where the day holds its peak for more than one hour, the rows are read off the first of them, and a footnote says which hours those are, since they draw the same total from a different mix of clusters.
-
-Last is the same comparison read across the whole day rather than in the one hour the bars were drawn from, since the busiest hour is the hour either sizing comes closest to being justified in. Each row is what the estate draws at one end of the day, against what both racks hold while it does: in the quant fund the peak of the sum is 45.08% idle at 20:00 but 89.79% idle at 06:00, and 69.80% idle averaged over the 24 hours. A run of hours too long to list is counted instead.
+Last is the same comparison across the whole day: in the quant fund the peak of the sum is 45.08% idle at 20:00 but 89.79% idle at 06:00, and 69.80% idle averaged over the 24 hours.
 
 ### JSON
 
-`size --format json` emits the same figures plus per-cluster detail, for piping into other tools. The hourly profile is always included, so `--profile` affects table output only.
+`size --format json` emits the same figures plus per-cluster detail. The day is included as one figure an hour; `profile --format json` is the same day split into the base and peak bands.
 
 ```sh
 u9n size --config _examples/quant-fund.csv --format json | jq '.scenarios[] | {key, required_vcpu}'
@@ -256,51 +228,8 @@ u9n size --config _examples/quant-fund.csv --format json | jq '.scenarios[] | {k
 }
 ```
 
-`peak_hours` is null for sizings that aren't hour aware, and `peak_from`, `peak_to` and `peak_diversity_percent` are null when the config carries no peak windows. `peak_hour_contribution_vcpu` is what each cluster draws at the first of the peak hours, which is how you find the clusters driving the number. The peak hours all draw the same total, but not from the same mix of clusters.
+`peak_hours` is null for sizings that aren't hour aware, and `peak_from`, `peak_to` and `peak_diversity_percent` are null when the config carries no peak windows. `peak_hour_contribution_vcpu` is what each cluster draws at the first of the peak hours, which is how you find the clusters driving the number.
 
 ### Examples
 
-u9n comes with 10 examples with varying workloads and peaks. We'll explore just one (quant-fund).
-
-A trading day that barely registers compared to a nightly batch chain that runs the estate flat out.
-
-Profile the day
-
-```sh
-u9n profile --config _examples/quant-fund.csv
-```
-
-<p align="center">
-  <img src="./assets/images/profile.png" alt="profile" width="400">
-</p>
-
-Run with 50% headroom (tabular output)
-
-```sh
-u9n size --config _examples/quant-fund.csv --headroom 50
-```
-
-Output
-
-```
-Clusters:          14
-Provisioned vCPU:  18576
-Headroom:          50%
-Peak diversity:    45.08%
-
-               Current    Worst case     Hour aware
-Required vCPU  18576      13962          7668
-Peak vCPU      9308       9308           5112
-Utilisation    50.11%     66.67%         66.67%
-Peak hours     -          -              20:00, 21:00, 22:00
-Saved vCPU     0 (0.00%)  4614 (24.84%)  10908 (58.72%)
-```
-
-The batch stages are staggered rather than concurrent, which is where the 45% peak diversity comes from, and it's also the assumption most worth testing. Run the same config with the stages overlapping and the hour aware figure converges on the worst case.
-
-Run with 50% headroom (graph output)
-
-<p align="center">
-  <img src="./assets/images/size.png" alt="quant-fund" width="400">
-</p>
-
+u9n ships with 10 example configs in `_examples`, with varying workloads and peaks.

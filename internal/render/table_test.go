@@ -2,7 +2,6 @@ package render
 
 import (
 	"errors"
-	"slices"
 	"strings"
 	"testing"
 
@@ -21,7 +20,7 @@ func fixture(a estate.Assumptions) estate.Summary {
 
 func TestTable(t *testing.T) {
 	var b strings.Builder
-	if err := Table(&b, fixture(estate.Assumptions{Headroom: 20, Years: 1}), false); err != nil {
+	if err := Table(&b, fixture(estate.Assumptions{Headroom: 20, Years: 1})); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -49,11 +48,11 @@ func TestTable(t *testing.T) {
 func TestTableReportsGrowthWhenItIsSet(t *testing.T) {
 	var plain, grown strings.Builder
 
-	if err := Table(&plain, fixture(estate.Assumptions{Headroom: 20, Years: 1}), false); err != nil {
+	if err := Table(&plain, fixture(estate.Assumptions{Headroom: 20, Years: 1})); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if err := Table(&grown, fixture(estate.Assumptions{Headroom: 20, Growth: 10, Years: 3}), false); err != nil {
+	if err := Table(&grown, fixture(estate.Assumptions{Headroom: 20, Growth: 10, Years: 3})); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -73,7 +72,7 @@ func TestTableWithoutWindows(t *testing.T) {
 	s := estate.Summarise([]estate.Cluster{{Name: "a", Provisioned: 10, Peak: 5}}, estate.Assumptions{Headroom: 20, Years: 1})
 
 	var b strings.Builder
-	if err := Table(&b, s, false); err != nil {
+	if err := Table(&b, s); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -88,52 +87,8 @@ func TestTableWithoutWindows(t *testing.T) {
 	}
 }
 
-func TestTableProfile(t *testing.T) {
-	var b strings.Builder
-	if err := Table(&b, fixture(estate.Assumptions{Headroom: 20, Years: 1}), true); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	_, profile, found := strings.Cut(b.String(), "Hourly profile\n")
-	if !found {
-		t.Fatalf("expected an hourly profile, got:\n%s", b.String())
-	}
-
-	rows := strings.Split(strings.TrimRight(profile, "\n"), "\n")
-	if len(rows) != estate.HoursPerDay {
-		t.Fatalf("expected %d hours, got %d", estate.HoursPerDay, len(rows))
-	}
-
-	// Every hour tied for the busiest is marked, and the bars are drawn against
-	// them, so off peak hours get a shorter one.
-	for _, hour := range []int{9, 10} {
-		exp := []string{estate.FormatHour(hour), strings.Repeat("#", profileWidth), "5", "<-", "peak"}
-		if !slices.Equal(strings.Fields(rows[hour]), exp) {
-			t.Errorf("expected peak hour row %q, got %q", exp, rows[hour])
-		}
-	}
-
-	if exp := []string{"00:00", strings.Repeat("#", profileWidth/5), "1"}; !slices.Equal(strings.Fields(rows[0]), exp) {
-		t.Errorf("expected off peak row %q, got %q", exp, rows[0])
-	}
-}
-
-// An estate with no demand has nothing to scale the profile bars against.
-func TestTableProfileWithoutDemand(t *testing.T) {
-	s := estate.Summarise([]estate.Cluster{{Name: "a"}}, estate.Assumptions{Headroom: 20, Years: 1})
-
-	var b strings.Builder
-	if err := Table(&b, s, true); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if strings.Contains(b.String(), "#") {
-		t.Errorf("expected no bars for an empty estate, got:\n%s", b.String())
-	}
-}
-
 func TestTableReportsWriteErrors(t *testing.T) {
-	if err := Table(failingWriter{}, fixture(estate.Assumptions{Headroom: 20, Years: 1}), false); err == nil {
+	if err := Table(failingWriter{}, fixture(estate.Assumptions{Headroom: 20, Years: 1})); err == nil {
 		t.Fatal("expected an error from a writer that refuses to write")
 	}
 }

@@ -9,31 +9,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	formatTable = "table"
-	formatJSON  = "json"
-	formatGraph = "graph"
-)
-
 // sizeOptions is everything the size command takes.
 type sizeOptions struct {
 	config      string
 	format      string
-	profile     bool
 	assumptions estate.Assumptions
 }
 
 func (o sizeOptions) validate() error {
+	// The assumptions are checked first, since a bad one makes the numbers
+	// meaningless whatever they are printed as.
 	if err := o.assumptions.Validate(); err != nil {
 		return err
 	}
 
-	switch o.format {
-	case formatTable, formatJSON, formatGraph:
-		return nil
-	default:
-		return fmt.Errorf("invalid format %q, expected %s, %s or %s", o.format, formatTable, formatJSON, formatGraph)
-	}
+	return validateFormat(o.format)
 }
 
 func sizeCommand() *cobra.Command {
@@ -55,8 +45,7 @@ func sizeCommand() *cobra.Command {
 	f.Float64Var(&o.assumptions.Headroom, "headroom", 20, "percentage of spare capacity to add on top of peak utilisation")
 	f.Float64Var(&o.assumptions.Growth, "growth", 0, "expected annual growth in vcpu demand, as a percentage")
 	f.Float64Var(&o.assumptions.Years, "years", 1, "number of years to compound growth over")
-	f.BoolVar(&o.profile, "profile", false, "print the hourly vcpu profile of the consolidated estate")
-	f.StringVar(&o.format, "format", formatTable, "output format, one of table, json or graph")
+	f.StringVar(&o.format, "format", formatTable, formatUsage)
 
 	// The error only reports a flag that was never registered, which the line
 	// above rules out.
@@ -84,5 +73,5 @@ func runSize(w io.Writer, o sizeOptions) error {
 		return render.Graph(w, s)
 	}
 
-	return render.Table(w, s, o.profile)
+	return render.Table(w, s)
 }

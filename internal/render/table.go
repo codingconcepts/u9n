@@ -4,8 +4,6 @@ package render
 import (
 	"fmt"
 	"io"
-	"math"
-	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -13,37 +11,21 @@ import (
 	"github.com/codingconcepts/u9n/internal/estate"
 )
 
-// profileWidth is the widest an hourly profile bar is drawn, in characters.
-const profileWidth = 40
-
-// section is one block of aligned rows, laid out independently of the others
-// so a long value in one doesn't pad out the columns of the next.
-type section struct {
-	heading string
-	rows    [][]string
-}
-
-// Table writes the human readable report, optionally with the hourly profile.
-func Table(w io.Writer, s estate.Summary, profile bool) error {
-	sections := []section{{rows: estateRows(s)}, {rows: scenarioRows(s)}}
-	if profile {
-		sections = append(sections, section{heading: "Hourly profile", rows: profileRows(s)})
-	}
+// Table writes the human readable report. Each section is laid out
+// independently of the others, so a long value in one doesn't pad out the
+// columns of the next.
+func Table(w io.Writer, s estate.Summary) error {
+	sections := [][][]string{estateRows(s), scenarioRows(s)}
 
 	var b strings.Builder
 
-	for i, sec := range sections {
+	for i, rows := range sections {
 		if i > 0 {
 			b.WriteString("\n")
 		}
 
-		if sec.heading != "" {
-			b.WriteString(sec.heading)
-			b.WriteString("\n")
-		}
-
 		tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
-		for _, row := range sec.rows {
+		for _, row := range rows {
 			// Writes are buffered, so the error surfaces from Flush below.
 			_, _ = fmt.Fprintln(tw, strings.Join(row, "\t"))
 		}
@@ -107,26 +89,6 @@ func scenarioRows(s estate.Summary) [][]string {
 		} {
 			rows[i] = append(rows[i], value)
 		}
-	}
-
-	return rows
-}
-
-func profileRows(s estate.Summary) [][]string {
-	rows := make([][]string, 0, estate.HoursPerDay)
-
-	for hour, total := range s.Hourly {
-		var bar int
-		if s.HourAware.Peak > 0 {
-			bar = int(math.Round(total / s.HourAware.Peak * profileWidth))
-		}
-
-		marker := ""
-		if slices.Contains(s.HourAware.PeakHours, hour) {
-			marker = " <- peak"
-		}
-
-		rows = append(rows, []string{estate.FormatHour(hour), strings.Repeat("#", bar), estate.Num(total) + marker})
 	}
 
 	return rows

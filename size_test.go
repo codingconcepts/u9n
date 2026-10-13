@@ -62,21 +62,6 @@ func TestRunSize(t *testing.T) {
 				t.Errorf("expected the output to contain %q, got:\n%s", want, b.String())
 			}
 		}
-
-		if strings.Contains(b.String(), "Hourly profile") {
-			t.Error("expected no hourly profile unless it is asked for")
-		}
-	})
-
-	t.Run("table with the profile", func(t *testing.T) {
-		var b strings.Builder
-		if err := runSize(&b, sizeOptions{config: config, format: formatTable, profile: true, assumptions: assumptions}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if !strings.Contains(b.String(), "Hourly profile") {
-			t.Errorf("expected an hourly profile, got:\n%s", b.String())
-		}
 	})
 
 	t.Run("json", func(t *testing.T) {

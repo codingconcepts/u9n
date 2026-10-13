@@ -2,6 +2,7 @@ package render
 
 import (
 	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -106,6 +107,80 @@ func TestJSONWithoutWindows(t *testing.T) {
 
 func TestJSONReportsWriteErrors(t *testing.T) {
 	if err := JSON(failingWriter{}, fixture(estate.Assumptions{Headroom: 20, Years: 1})); err == nil {
+		t.Fatal("expected an error from a writer that refuses to write")
+	}
+}
+
+func TestProfileJSON(t *testing.T) {
+	var b strings.Builder
+	if err := ProfileJSON(&b, profileFixture, Bands{Base: true, Peak: true}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var out jsonProfile
+	if err := json.Unmarshal([]byte(b.String()), &out); err != nil {
+		t.Fatalf("decoding the output: %v", err)
+	}
+
+	if !out.Bands.Base || !out.Bands.Peak {
+		t.Errorf("expected both bands to be reported, got %+v", out.Bands)
+	}
+
+	if out.PeakVCPU != 5 || !slices.Equal(out.PeakHours, []int{9, 10}) {
+		t.Errorf("expected a peak of 5 at 09:00 and 10:00, got %g at %v", out.PeakVCPU, out.PeakHours)
+	}
+
+	if len(out.Hourly) != estate.HoursPerDay {
+		t.Fatalf("expected %d hours, got %d", estate.HoursPerDay, len(out.Hourly))
+	}
+
+	// The base is the same in all 24 hours and the uplift only lands in the
+	// two the cluster peaks in.
+	if exp := (jsonProfileHour{Hour: 0, BaseVCPU: 1, VCPU: 1}); out.Hourly[0] != exp {
+		t.Errorf("expected an off peak hour of %+v, got %+v", exp, out.Hourly[0])
+	}
+
+	if exp := (jsonProfileHour{Hour: 9, BaseVCPU: 1, UpliftVCPU: 4, VCPU: 5}); out.Hourly[9] != exp {
+		t.Errorf("expected a peak hour of %+v, got %+v", exp, out.Hourly[9])
+	}
+}
+
+// Dropping a band zeroes it everywhere rather than leaving it in the figures
+// the chart isn't drawing.
+func TestProfileJSONReportsOnlyTheBandsAskedFor(t *testing.T) {
+	var b strings.Builder
+	if err := ProfileJSON(&b, profileFixture, Bands{Peak: true}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var out jsonProfile
+	if err := json.Unmarshal([]byte(b.String()), &out); err != nil {
+		t.Fatalf("decoding the output: %v", err)
+	}
+
+	if out.Bands.Base {
+		t.Errorf("expected no base band, got %+v", out.Bands)
+	}
+
+	if exp := (jsonProfileHour{Hour: 9, UpliftVCPU: 4, VCPU: 4}); out.Hourly[9] != exp {
+		t.Errorf("expected the uplift alone, got %+v", out.Hourly[9])
+	}
+}
+
+func TestProfileJSONRejectsADocumentWithNoBands(t *testing.T) {
+	var b strings.Builder
+
+	if err := ProfileJSON(&b, profileFixture, Bands{}); !errors.Is(err, errNoBands) {
+		t.Fatalf("expected the empty profile to be refused, got %v", err)
+	}
+
+	if b.String() != "" {
+		t.Errorf("expected nothing to be written, got:\n%s", b.String())
+	}
+}
+
+func TestProfileJSONReportsWriteErrors(t *testing.T) {
+	if err := ProfileJSON(failingWriter{}, profileFixture, Bands{Base: true, Peak: true}); err == nil {
 		t.Fatal("expected an error from a writer that refuses to write")
 	}
 }
