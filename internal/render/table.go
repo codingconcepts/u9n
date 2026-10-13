@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -86,14 +87,14 @@ func scenarioRows(s estate.Summary) [][]string {
 		{"Required vCPU"},
 		{"Peak vCPU"},
 		{"Utilisation"},
-		{"Peak hour"},
+		{"Peak hours"},
 		{"Saved vCPU"},
 	}
 
 	for _, sc := range s.Scenarios() {
-		peakHour := "-"
+		peakHours := "-"
 		if sc.HourAware {
-			peakHour = estate.FormatHour(sc.PeakHour)
+			peakHours = estate.FormatHours(sc.PeakHours)
 		}
 
 		for i, value := range []string{
@@ -101,7 +102,7 @@ func scenarioRows(s estate.Summary) [][]string {
 			estate.Num(sc.Required),
 			estate.Num(sc.Peak),
 			percent(sc.Utilisation()),
-			peakHour,
+			peakHours,
 			fmt.Sprintf("%s (%s)", estate.Num(sc.Saved()), percent(sc.SavedPercent())),
 		} {
 			rows[i] = append(rows[i], value)
@@ -121,7 +122,7 @@ func profileRows(s estate.Summary) [][]string {
 		}
 
 		marker := ""
-		if hour == s.HourAware.PeakHour {
+		if slices.Contains(s.HourAware.PeakHours, hour) {
 			marker = " <- peak"
 		}
 

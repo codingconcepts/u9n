@@ -27,7 +27,7 @@ type jsonScenario struct {
 	Label              string  `json:"label"`
 	PeakVCPU           float64 `json:"peak_vcpu"`
 	UtilisationPercent float64 `json:"utilisation_percent"`
-	PeakHour           *int    `json:"peak_hour"`
+	PeakHours          []int   `json:"peak_hours"`
 	RequiredVCPU       float64 `json:"required_vcpu"`
 	SavedVCPU          float64 `json:"saved_vcpu"`
 	SavedPercent       float64 `json:"saved_percent"`
@@ -78,7 +78,7 @@ func JSON(w io.Writer, s estate.Summary) error {
 		}
 
 		if sc.HourAware {
-			js.PeakHour = &sc.PeakHour
+			js.PeakHours = sc.PeakHours
 		}
 
 		out.Scenarios = append(out.Scenarios, js)
@@ -90,11 +90,13 @@ func JSON(w io.Writer, s estate.Summary) error {
 
 	for _, c := range s.Clusters {
 		jc := jsonCluster{
-			Name:                 c.Name,
-			ProvisionedVCPU:      c.Provisioned,
-			PeakVCPU:             c.Peak,
-			BaseVCPU:             c.Base,
-			PeakHourContribution: c.VCPUAt(s.HourAware.PeakHour),
+			Name:            c.Name,
+			ProvisionedVCPU: c.Provisioned,
+			PeakVCPU:        c.Peak,
+			BaseVCPU:        c.Base,
+			// Every peak hour draws the same total, but not the same mix of
+			// clusters, so the contribution is read off the first of them.
+			PeakHourContribution: c.VCPUAt(s.HourAware.PeakHours[0]),
 		}
 
 		if c.Windowed {

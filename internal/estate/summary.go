@@ -63,8 +63,11 @@ type Scenario struct {
 
 	Provisioned float64
 
-	// PeakHour is only meaningful when the scenario is hour aware.
-	PeakHour  int
+	// PeakHours are the hours the estate is busiest in, in order. A day often
+	// holds its peak for a stretch rather than a single hour, so every hour
+	// tied for the busiest is reported. Only meaningful when the scenario is
+	// hour aware.
+	PeakHours []int
 	HourAware bool
 
 	// Baseline marks the status quo, which is sized by what is already
@@ -151,16 +154,22 @@ func Summarise(clusters []Cluster, a Assumptions) Summary {
 	}
 
 	// Found in one pass rather than by searching for the maximum value, which
-	// relies on an exact float comparison to locate the hour it came from.
-	var peakHour int
+	// relies on an exact float comparison to locate the hour it came from. The
+	// ties are exact by construction: two hours the same clusters draw the same
+	// vcpu in are summed from the same numbers in the same order, so they come
+	// out bit for bit identical rather than merely close.
+	peakHours := []int{0}
 
 	for hour, total := range s.Hourly {
-		if total > s.Hourly[peakHour] {
-			peakHour = hour
+		switch peak := s.Hourly[peakHours[0]]; {
+		case total > peak:
+			peakHours = []int{hour}
+		case total == peak && hour != peakHours[0]:
+			peakHours = append(peakHours, hour)
 		}
 	}
 
-	peakOfSums := s.Hourly[peakHour]
+	peakOfSums := s.Hourly[peakHours[0]]
 
 	// The status quo is sized by what is already racked, not by demand, so it
 	// carries no growth or headroom. It is the baseline the savings are
@@ -183,7 +192,7 @@ func Summarise(clusters []Cluster, a Assumptions) Summary {
 		Key:       KeyHourAware,
 		Label:     "Hour aware",
 		Peak:      peakOfSums,
-		PeakHour:  peakHour,
+		PeakHours: peakHours,
 		HourAware: true,
 	}
 

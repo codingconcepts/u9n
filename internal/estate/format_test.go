@@ -35,3 +35,29 @@ func TestFormatHour(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatHours(t *testing.T) {
+	allDay := make([]int, 0, HoursPerDay)
+	for hour := range HoursPerDay {
+		allDay = append(allDay, hour)
+	}
+
+	cases := []struct {
+		name  string
+		hours []int
+		exp   string
+	}{
+		{name: "one hour", hours: []int{20}, exp: "20:00"},
+		{name: "a run of hours", hours: []int{20, 21, 22}, exp: "20:00, 21:00, 22:00"},
+		{name: "hours apart", hours: []int{2, 18}, exp: "02:00, 18:00"},
+		{name: "a day that never lets up", hours: allDay, exp: "all day"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if act := FormatHours(c.hours); act != c.exp {
+				t.Errorf("FormatHours(%v): expected %q, got %q", c.hours, c.exp, act)
+			}
+		})
+	}
+}

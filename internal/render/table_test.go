@@ -35,7 +35,7 @@ func TestTable(t *testing.T) {
 		"Required vCPU  10         6           6",
 		"Peak vCPU      5          5           5",
 		"Utilisation    50.00%     83.33%      83.33%",
-		"Peak hour      -          -           09:00",
+		"Peak hours     -          -           09:00, 10:00",
 		"Saved vCPU     0 (0.00%)  4 (40.00%)  4 (40.00%)",
 		"",
 	}, "\n")
@@ -67,7 +67,8 @@ func TestTableReportsGrowthWhenItIsSet(t *testing.T) {
 }
 
 // Without peak windows there is no diversity to report, but the hour aware
-// column still appears, repeating the worst case and carrying the peak hour.
+// column still appears, repeating the worst case and carrying the peak hours,
+// which are every hour of a day that never lets up.
 func TestTableWithoutWindows(t *testing.T) {
 	s := estate.Summarise([]estate.Cluster{{Name: "a", Provisioned: 10, Peak: 5}}, estate.Assumptions{Headroom: 20, Years: 1})
 
@@ -80,7 +81,7 @@ func TestTableWithoutWindows(t *testing.T) {
 		t.Errorf("expected no %q in:\n%s", "Peak diversity", b.String())
 	}
 
-	for _, want := range []string{"Hour aware", "00:00"} {
+	for _, want := range []string{"Hour aware", "all day"} {
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("expected %q in:\n%s", want, b.String())
 		}
@@ -103,10 +104,13 @@ func TestTableProfile(t *testing.T) {
 		t.Fatalf("expected %d hours, got %d", estate.HoursPerDay, len(rows))
 	}
 
-	// The busiest hour is marked, and the bar is drawn against it, so off peak
-	// hours get a shorter one.
-	if exp := []string{"09:00", strings.Repeat("#", profileWidth), "5", "<-", "peak"}; !slices.Equal(strings.Fields(rows[9]), exp) {
-		t.Errorf("expected peak hour row %q, got %q", exp, rows[9])
+	// Every hour tied for the busiest is marked, and the bars are drawn against
+	// them, so off peak hours get a shorter one.
+	for _, hour := range []int{9, 10} {
+		exp := []string{estate.FormatHour(hour), strings.Repeat("#", profileWidth), "5", "<-", "peak"}
+		if !slices.Equal(strings.Fields(rows[hour]), exp) {
+			t.Errorf("expected peak hour row %q, got %q", exp, rows[hour])
+		}
 	}
 
 	if exp := []string{"00:00", strings.Repeat("#", profileWidth/5), "1"}; !slices.Equal(strings.Fields(rows[0]), exp) {

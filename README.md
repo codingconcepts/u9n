@@ -84,7 +84,7 @@ Peak diversity:    45.08%
 Required vCPU  18576      13032          7157
 Peak vCPU      9308       9308           5112
 Utilisation    50.11%     71.42%         71.43%
-Peak hour      -          -              20:00
+Peak hours     -          -              20:00, 21:00, 22:00
 Saved vCPU     0 (0.00%)  5544 (29.84%)  11419 (61.47%)
 ```
 <!-- u9n:end -->
@@ -105,7 +105,7 @@ Peak diversity:    45.08%
 Required vCPU  18576      19819           10885
 Peak vCPU      9308       9308            5112
 Utilisation    50.11%     46.97%          46.96%
-Peak hour      -          -               20:00
+Peak hours     -          -               20:00, 21:00, 22:00
 Saved vCPU     0 (0.00%)  -1243 (-6.69%)  7691 (41.40%)
 ```
 <!-- u9n:end -->
@@ -114,7 +114,7 @@ Saved vCPU     0 (0.00%)  -1243 (-6.69%)  7691 (41.40%)
 
 **Worst case** is the sum of every cluster's peak. It assumes they all peak at the same instant, whenever that is, so it has no peak hour.
 
-**Hour aware** walks the 24 hour clock, adds up what every cluster draws in each hour, and takes the busiest. Without peak windows in the config every hour is identical, so the column repeats the worst case and the peak hour reads `00:00` because the first hour wins the tie.
+**Hour aware** walks the 24 hour clock, adds up what every cluster draws in each hour, and takes the busiest. A day often holds its peak for a stretch rather than a single hour, so every hour tied for the busiest is listed. Without peak windows in the config every hour is identical, so the column repeats the worst case and the peak hours read `all day`.
 
 **Peak diversity** is the share of the worst case total avoided by peaks falling in different hours. It's the consolidation win.
 
@@ -196,7 +196,7 @@ u9n size --config _examples/quant-fund.csv --format json | jq '.scenarios[] | {k
       "label": "Hour aware",
       "peak_vcpu": 5112,
       "utilisation_percent": 83.32518337408314,
-      "peak_hour": 20,
+      "peak_hours": [20, 21, 22],
       "required_vcpu": 6135,
       "saved_vcpu": 12441,
       "saved_percent": 66.97351421188631
@@ -217,7 +217,7 @@ u9n size --config _examples/quant-fund.csv --format json | jq '.scenarios[] | {k
 }
 ```
 
-`peak_hour` is null for sizings that aren't hour aware, and `peak_from`, `peak_to` and `peak_diversity_percent` are null when the config carries no peak windows. `peak_hour_contribution_vcpu` is what each cluster draws at the hour aware peak, which is how you find the clusters driving the number.
+`peak_hours` is null for sizings that aren't hour aware, and `peak_from`, `peak_to` and `peak_diversity_percent` are null when the config carries no peak windows. `peak_hour_contribution_vcpu` is what each cluster draws at the first of the peak hours, which is how you find the clusters driving the number. The peak hours all draw the same total, but not from the same mix of clusters.
 
 ### Examples
 
@@ -251,7 +251,7 @@ Peak diversity:    45.08%
 Required vCPU  18576      13962          7668
 Peak vCPU      9308       9308           5112
 Utilisation    50.11%     66.67%         66.67%
-Peak hour      -          -              20:00
+Peak hours     -          -              20:00, 21:00, 22:00
 Saved vCPU     0 (0.00%)  4614 (24.84%)  10908 (58.72%)
 ```
 

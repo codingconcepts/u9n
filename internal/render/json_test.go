@@ -2,6 +2,7 @@ package render
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -31,17 +32,17 @@ func TestJSON(t *testing.T) {
 		t.Fatalf("expected 3 scenarios, got %d", len(out.Scenarios))
 	}
 
-	// Only the hour aware sizing has a peak hour to report, and it must say so
+	// Only the hour aware sizing has peak hours to report, and it must say so
 	// with null rather than a misleading midnight.
 	for _, sc := range out.Scenarios {
 		switch sc.Key {
 		case estate.KeyHourAware:
-			if sc.PeakHour == nil || *sc.PeakHour != 9 {
-				t.Errorf("hour aware: expected peak hour 9, got %v", sc.PeakHour)
+			if !slices.Equal(sc.PeakHours, []int{9, 10}) {
+				t.Errorf("hour aware: expected peak hours 9 and 10, got %v", sc.PeakHours)
 			}
 		default:
-			if sc.PeakHour != nil {
-				t.Errorf("%s: expected no peak hour, got %v", sc.Key, *sc.PeakHour)
+			if sc.PeakHours != nil {
+				t.Errorf("%s: expected no peak hours, got %v", sc.Key, sc.PeakHours)
 			}
 		}
 	}
@@ -92,9 +93,10 @@ func TestJSONWithoutWindows(t *testing.T) {
 	}
 
 	// The hour aware sizing repeats the worst case, but still answers the peak
-	// hour rather than leaving it null.
-	if hourAware := out.Scenarios[2]; hourAware.PeakHour == nil || *hourAware.PeakHour != 0 {
-		t.Errorf("expected the hour aware sizing to peak at hour 0, got %+v", hourAware)
+	// hours rather than leaving them null. Every hour is as busy as the last,
+	// so every hour is a peak.
+	if hourAware := out.Scenarios[2]; len(hourAware.PeakHours) != estate.HoursPerDay {
+		t.Errorf("expected the hour aware sizing to peak all day, got %+v", hourAware)
 	}
 
 	if detail := out.ClusterDetail[0]; detail.PeakFrom != nil || detail.PeakTo != nil {

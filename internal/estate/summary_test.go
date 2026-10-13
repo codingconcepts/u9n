@@ -2,6 +2,7 @@ package estate
 
 import (
 	"math"
+	"slices"
 	"testing"
 )
 
@@ -12,14 +13,21 @@ func TestSummarise(t *testing.T) {
 		{Provisioned: 12, Peak: 10, Base: 2, PeakFrom: 18, PeakTo: 19, Windowed: true},
 	}
 
+	// allDay is every hour of the clock, which is what peaks in a day that is
+	// as busy at one hour as it is at any other.
+	allDay := make([]int, 0, HoursPerDay)
+	for hour := range HoursPerDay {
+		allDay = append(allDay, hour)
+	}
+
 	cases := []struct {
-		name        string
-		clusters    []Cluster
-		assumptions Assumptions
-		expPeak     map[string]float64
-		expRequired map[string]float64
-		expSaved    map[string]float64
-		expPeakHour int
+		name         string
+		clusters     []Cluster
+		assumptions  Assumptions
+		expPeak      map[string]float64
+		expRequired  map[string]float64
+		expSaved     map[string]float64
+		expPeakHours []int
 	}{
 		{
 			name:        "without windows peaks are assumed to coincide",
@@ -29,6 +37,8 @@ func TestSummarise(t *testing.T) {
 			// ceil(6 * 1.2) == ceil(7.2)
 			expRequired: map[string]float64{KeyCurrent: 16, KeyWorstCase: 8, KeyHourAware: 8},
 			expSaved:    map[string]float64{KeyCurrent: 0, KeyWorstCase: 8, KeyHourAware: 8},
+			// No windows, so every hour draws the same and every hour ties.
+			expPeakHours: allDay,
 		},
 		{
 			name:        "staggered windows lower the hour aware sizing",
@@ -36,9 +46,9 @@ func TestSummarise(t *testing.T) {
 			assumptions: Assumptions{Headroom: 20, Years: 1},
 			expPeak:     map[string]float64{KeyCurrent: 30, KeyWorstCase: 30, KeyHourAware: 14}, // 10 + 2 + 2
 			// ceil(30 * 1.2) and ceil(14 * 1.2)
-			expRequired: map[string]float64{KeyCurrent: 36, KeyWorstCase: 36, KeyHourAware: 17},
-			expSaved:    map[string]float64{KeyCurrent: 0, KeyWorstCase: 0, KeyHourAware: 19},
-			expPeakHour: 2,
+			expRequired:  map[string]float64{KeyCurrent: 36, KeyWorstCase: 36, KeyHourAware: 17},
+			expSaved:     map[string]float64{KeyCurrent: 0, KeyWorstCase: 0, KeyHourAware: 19},
+			expPeakHours: []int{2, 10, 18},
 		},
 		{
 			name:        "growth compounds over the given years",
@@ -46,18 +56,18 @@ func TestSummarise(t *testing.T) {
 			assumptions: Assumptions{Growth: 10, Years: 3},
 			expPeak:     map[string]float64{KeyCurrent: 30, KeyWorstCase: 30, KeyHourAware: 14},
 			// 1.1^3 == 1.331, so ceil(30 * 1.331) and ceil(14 * 1.331)
-			expRequired: map[string]float64{KeyCurrent: 36, KeyWorstCase: 40, KeyHourAware: 19},
-			expSaved:    map[string]float64{KeyCurrent: 0, KeyWorstCase: -4, KeyHourAware: 17},
-			expPeakHour: 2,
+			expRequired:  map[string]float64{KeyCurrent: 36, KeyWorstCase: 40, KeyHourAware: 19},
+			expSaved:     map[string]float64{KeyCurrent: 0, KeyWorstCase: -4, KeyHourAware: 17},
+			expPeakHours: []int{2, 10, 18},
 		},
 		{
-			name:        "negative growth shrinks the estate",
-			clusters:    staggered,
-			assumptions: Assumptions{Growth: -50, Years: 1},
-			expPeak:     map[string]float64{KeyCurrent: 30, KeyWorstCase: 30, KeyHourAware: 14},
-			expRequired: map[string]float64{KeyCurrent: 36, KeyWorstCase: 15, KeyHourAware: 7},
-			expSaved:    map[string]float64{KeyCurrent: 0, KeyWorstCase: 21, KeyHourAware: 29},
-			expPeakHour: 2,
+			name:         "negative growth shrinks the estate",
+			clusters:     staggered,
+			assumptions:  Assumptions{Growth: -50, Years: 1},
+			expPeak:      map[string]float64{KeyCurrent: 30, KeyWorstCase: 30, KeyHourAware: 14},
+			expRequired:  map[string]float64{KeyCurrent: 36, KeyWorstCase: 15, KeyHourAware: 7},
+			expSaved:     map[string]float64{KeyCurrent: 0, KeyWorstCase: 21, KeyHourAware: 29},
+			expPeakHours: []int{2, 10, 18},
 		},
 		{
 			name: "overlapping windows stack",
@@ -65,19 +75,20 @@ func TestSummarise(t *testing.T) {
 				{Provisioned: 12, Peak: 10, Base: 1, PeakFrom: 9, PeakTo: 12, Windowed: true},
 				{Provisioned: 12, Peak: 10, Base: 1, PeakFrom: 11, PeakTo: 14, Windowed: true},
 			},
-			assumptions: Assumptions{Years: 1},
-			expPeak:     map[string]float64{KeyCurrent: 20, KeyWorstCase: 20, KeyHourAware: 20},
-			expRequired: map[string]float64{KeyCurrent: 24, KeyWorstCase: 20, KeyHourAware: 20},
-			expSaved:    map[string]float64{KeyCurrent: 0, KeyWorstCase: 4, KeyHourAware: 4},
-			expPeakHour: 11,
+			assumptions:  Assumptions{Years: 1},
+			expPeak:      map[string]float64{KeyCurrent: 20, KeyWorstCase: 20, KeyHourAware: 20},
+			expRequired:  map[string]float64{KeyCurrent: 24, KeyWorstCase: 20, KeyHourAware: 20},
+			expSaved:     map[string]float64{KeyCurrent: 0, KeyWorstCase: 4, KeyHourAware: 4},
+			expPeakHours: []int{11},
 		},
 		{
-			name:        "zero provisioned",
-			clusters:    []Cluster{{Provisioned: 0, Peak: 0}},
-			assumptions: Assumptions{Headroom: 50, Years: 1},
-			expPeak:     map[string]float64{KeyCurrent: 0, KeyWorstCase: 0, KeyHourAware: 0},
-			expRequired: map[string]float64{KeyCurrent: 0, KeyWorstCase: 0, KeyHourAware: 0},
-			expSaved:    map[string]float64{KeyCurrent: 0, KeyWorstCase: 0, KeyHourAware: 0},
+			name:         "zero provisioned",
+			clusters:     []Cluster{{Provisioned: 0, Peak: 0}},
+			assumptions:  Assumptions{Headroom: 50, Years: 1},
+			expPeak:      map[string]float64{KeyCurrent: 0, KeyWorstCase: 0, KeyHourAware: 0},
+			expRequired:  map[string]float64{KeyCurrent: 0, KeyWorstCase: 0, KeyHourAware: 0},
+			expSaved:     map[string]float64{KeyCurrent: 0, KeyWorstCase: 0, KeyHourAware: 0},
+			expPeakHours: allDay,
 		},
 	}
 
@@ -99,8 +110,8 @@ func TestSummarise(t *testing.T) {
 				}
 			}
 
-			if s.HourAware.PeakHour != c.expPeakHour {
-				t.Errorf("expected peak hour %d, got %d", c.expPeakHour, s.HourAware.PeakHour)
+			if !slices.Equal(s.HourAware.PeakHours, c.expPeakHours) {
+				t.Errorf("expected peak hours %v, got %v", c.expPeakHours, s.HourAware.PeakHours)
 			}
 		})
 	}
@@ -188,7 +199,7 @@ func TestScenarios(t *testing.T) {
 	}
 
 	// Without windows the hour aware sizing is the worst case, but it is still
-	// reported so the peak hour has a column to sit in.
+	// reported so the peak hours have a column to sit in.
 	plain := Summarise([]Cluster{{Provisioned: 10, Peak: 5}}, Assumptions{Headroom: 20, Years: 1})
 	if got := len(plain.Scenarios()); got != 3 {
 		t.Errorf("expected 3 scenarios for a config without windows, got %d", got)
@@ -199,8 +210,8 @@ func TestScenarios(t *testing.T) {
 		t.Errorf("expected the hour aware sizing to match the worst case, got %+v", hourAware)
 	}
 
-	if hourAware.PeakHour != 0 {
-		t.Errorf("expected a flat day to peak at hour 0, got %d", hourAware.PeakHour)
+	if len(hourAware.PeakHours) != HoursPerDay {
+		t.Errorf("expected a flat day to peak in every hour, got %v", hourAware.PeakHours)
 	}
 }
 
