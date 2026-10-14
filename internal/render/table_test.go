@@ -30,12 +30,12 @@ func TestTable(t *testing.T) {
 		"Headroom:          20%",
 		"Peak diversity:    0.00%",
 		"",
-		"               Current    Worst case  Hour aware",
-		"Required vCPU  10         6           6",
-		"Peak vCPU      5          5           5",
-		"Utilisation    50.00%     83.33%      83.33%",
-		"Peak hours     -          -           09:00, 10:00",
-		"Saved vCPU     0 (0.00%)  4 (40.00%)  4 (40.00%)",
+		"               Racked today  Sum of the peaks  Peak of the sum",
+		"Required vCPU  10            6                 6",
+		"Peak vCPU      5             5                 5",
+		"Utilisation    50.00%        83.33%            83.33%",
+		"Peak hours     -             -                 09:00, 10:00",
+		"Saved vCPU     0 (0.00%)     4 (40.00%)        4 (40.00%)",
 		"",
 	}, "\n")
 
@@ -65,9 +65,9 @@ func TestTableReportsGrowthWhenItIsSet(t *testing.T) {
 	}
 }
 
-// Without peak windows there is no diversity to report, but the hour aware
-// column still appears, repeating the worst case and carrying the peak hours,
-// which are every hour of a day that never lets up.
+// Without peak windows there is no diversity to report, but the peak of the
+// sum column still appears, repeating the sum of the peaks and carrying the
+// peak hours, which are every hour of a day that never lets up.
 func TestTableWithoutWindows(t *testing.T) {
 	s := estate.Summarise([]estate.Cluster{{Name: "a", Provisioned: 10, Peak: 5}}, estate.Assumptions{Headroom: 20, Years: 1})
 
@@ -80,7 +80,7 @@ func TestTableWithoutWindows(t *testing.T) {
 		t.Errorf("expected no %q in:\n%s", "Peak diversity", b.String())
 	}
 
-	for _, want := range []string{"Hour aware", "all day"} {
+	for _, want := range []string{"Peak of the sum", "all day"} {
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("expected %q in:\n%s", want, b.String())
 		}

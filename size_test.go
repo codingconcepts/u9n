@@ -57,7 +57,7 @@ func TestRunSize(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		for _, want := range []string{"Clusters:", "Required vCPU", "Hour aware"} {
+		for _, want := range []string{"Clusters:", "Required vCPU", "Peak of the sum"} {
 			if !strings.Contains(b.String(), want) {
 				t.Errorf("expected the output to contain %q, got:\n%s", want, b.String())
 			}

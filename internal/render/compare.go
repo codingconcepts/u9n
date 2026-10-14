@@ -38,13 +38,14 @@ const (
 )
 
 // The base takes the neutral the other charts draw their floor in, and the
-// peak the worst case green, since the total these bars add up to is the worst
-// case sizing itself. What the clusters draw together takes the hour aware
-// purple for the same reason: the total that row comes to is that sizing.
+// peak the green of the sum of the peaks, since the total these bars add up to
+// is that sizing itself. What the clusters draw together takes the purple of
+// the peak of the sum for the same reason: the total that row comes to is that
+// sizing.
 var (
 	compareBaseBand     = band{label: baseLabel, block: shade, colours: utilisationColours}
-	comparePeakBand     = band{label: upliftLabel, block: full, colours: worstCaseColours}
-	compareTogetherBand = band{label: togetherLabel, block: full, colours: hourAwareColours}
+	comparePeakBand     = band{label: upliftLabel, block: full, colours: sumOfPeaksColours}
+	compareTogetherBand = band{label: togetherLabel, block: full, colours: peakOfSumColours}
 )
 
 // Compare writes the estate as it is racked when every cluster gets hardware
@@ -62,7 +63,7 @@ func Compare(w io.Writer, s estate.Summary) error {
 	// against the prompt that ran it or end hard against the next one.
 	b.WriteString("\n")
 
-	if s.WorstCase.Peak == 0 {
+	if s.SumOfPeaks.Peak == 0 {
 		b.WriteString(emptyCompare)
 		b.WriteString("\n\n")
 
@@ -76,18 +77,18 @@ func Compare(w io.Writer, s estate.Summary) error {
 	})
 
 	var (
-		cells  = compareCells(clusters, s.WorstCase.Peak)
+		cells  = compareCells(clusters, s.SumOfPeaks.Peak)
 		blocks = compareBlocks(cells)
 		width  = compareWidth(cells)
-		value  = compareValueWidth(clusters, s.WorstCase.Peak)
+		value  = compareValueWidth(clusters, s.SumOfPeaks.Peak)
 	)
 
 	// The hour the clusters are busiest together, and whether it is worth
 	// drawing. Without peak windows every cluster counts as at peak in every
 	// hour, so the two totals are the same bar twice over.
 	var (
-		hour     = s.HourAware.PeakHours[0]
-		together = s.Windowed && s.WorstCase.Peak != s.HourAware.Peak
+		hour     = s.PeakOfSum.PeakHours[0]
+		together = s.Windowed && s.SumOfPeaks.Peak != s.PeakOfSum.Peak
 	)
 
 	legend := []string{legendEntry(compareBaseBand), legendEntry(comparePeakBand)}
@@ -104,7 +105,7 @@ func Compare(w io.Writer, s estate.Summary) error {
 		// The base is scaled the same way the peak is and capped by it, so the
 		// shaded bar reads as the part of the solid one above it the cluster
 		// holds whether it is working or not.
-		base := min(compareScaled(c.Base, s.WorstCase.Peak, blocks), cells[i])
+		base := min(compareScaled(c.Base, s.SumOfPeaks.Peak, blocks), cells[i])
 
 		b.WriteString(c.Name)
 		b.WriteString("\n")
@@ -115,16 +116,16 @@ func Compare(w io.Writer, s estate.Summary) error {
 
 	b.WriteString(compareTotal)
 	b.WriteString("\n\n")
-	b.WriteString(compareTotalBar(cells, comparePeakBand, width, estate.Num(s.WorstCase.Peak), value))
+	b.WriteString(compareTotalBar(cells, comparePeakBand, width, estate.Num(s.SumOfPeaks.Peak), value))
 
 	// The same total taken at the hour the clusters share, segment for
 	// segment, so the length the bar loses against the one above it is the
 	// capacity shared hardware never has to stand up.
 	if together {
 		b.WriteString("\n")
-		fmt.Fprintf(&b, compareTogether+"\n\n", peakHeadingHours(s.HourAware.PeakHours))
+		fmt.Fprintf(&b, compareTogether+"\n\n", peakHeadingHours(s.PeakOfSum.PeakHours))
 		b.WriteString(compareTotalBar(compareHourCells(clusters, cells, hour),
-			compareTogetherBand, width, estate.Num(s.HourAware.Peak), value))
+			compareTogetherBand, width, estate.Num(s.PeakOfSum.Peak), value))
 	}
 
 	if note := compareNotes(s); note != "" {
@@ -319,12 +320,12 @@ func compareValueWidth(clusters []estate.Cluster, total float64) int {
 // to say for a config with no peak windows, where every cluster counts as at
 // peak in every hour and the two numbers are the same.
 func compareNotes(s estate.Summary) string {
-	if !s.Windowed || s.WorstCase.Peak == s.HourAware.Peak {
+	if !s.Windowed || s.SumOfPeaks.Peak == s.PeakOfSum.Peak {
 		return ""
 	}
 
 	return text.Wrap(fmt.Sprintf(compareNote,
-		estate.Num(s.WorstCase.Peak-s.HourAware.Peak),
+		estate.Num(s.SumOfPeaks.Peak-s.PeakOfSum.Peak),
 		percent(s.Diversity())), text.Width)
 }
 

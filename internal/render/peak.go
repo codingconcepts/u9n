@@ -19,10 +19,10 @@ const (
 	peakGap          = "  "
 	avoidedLabel     = "Avoided"
 	sumOfPeaksLabel  = "Sum of the peaks"
-	peakOfSumLabel   = "Peak of the sums"
+	peakOfSumLabel   = "Peak of the sum"
 	totalLabel       = "Total"
 	sumOfPeaksColumn = "Sum of peaks"
-	peakOfSumsColumn = "Peak of sums"
+	peakOfSumColumn  = "Peak of sum"
 	peakHeading      = "Every cluster at its own peak, versus what they draw together at %s"
 	anyHour          = "any hour of the day"
 	noWindows        = "No peak windows in the config, so every cluster counts as at peak in every hour and there's nothing to avoid."
@@ -38,21 +38,21 @@ const (
 	quietestLabel      = "Quietest"
 	drawnColumn        = "Drawn"
 	idleSumOfPeaks     = "Idle sum of peaks"
-	idlePeakOfSums     = "Idle peak of sums"
+	idlePeakOfSum      = "Idle peak of sum"
 	hoursColumn        = "Hours"
 	idleWithPercentage = "%s (%s)"
 )
 
-// The kept band is what the hour aware sizing stands up and the avoided band
-// what only the worst case pays for, so each takes the colour its sizing is
-// drawn in on the other charts.
+// The kept band is what the peak of the sum stands up and the avoided band
+// what only the sum of the peaks pays for, so each takes the colour its sizing
+// is drawn in on the other charts.
 // The sum of the peaks is a sizing in its own right rather than a split of
-// one, so it is drawn whole in the worst case colour instead of as the two
-// bands it would break into.
+// one, so it is drawn whole in its own colour instead of as the two bands it
+// would break into.
 var (
-	keptBand    = band{block: full, colours: hourAwareColours}
-	avoidedBand = band{block: shade, colours: worstCaseColours}
-	sumBand     = band{block: full, colours: worstCaseColours}
+	keptBand    = band{block: full, colours: peakOfSumColours}
+	avoidedBand = band{block: shade, colours: sumOfPeaksColours}
+	sumBand     = band{block: full, colours: sumOfPeaksColours}
 )
 
 // Peak writes a chart of the two ways the estate can be sized: for the sum of
@@ -66,18 +66,18 @@ func Peak(w io.Writer, s estate.Summary) error {
 	// against the prompt that ran it or end hard against the next one.
 	b.WriteString("\n")
 
-	if s.WorstCase.Peak == 0 {
+	if s.SumOfPeaks.Peak == 0 {
 		b.WriteString(emptyPeak)
 		b.WriteString("\n\n")
 
 		return writePeak(w, b.String())
 	}
 
-	hour := s.HourAware.PeakHours[0]
+	hour := s.PeakOfSum.PeakHours[0]
 
 	b.WriteString(peakTotals(s))
 	b.WriteString("\n")
-	fmt.Fprintf(&b, peakHeading+"\n\n", peakHeadingHours(s.HourAware.PeakHours))
+	fmt.Fprintf(&b, peakHeading+"\n\n", peakHeadingHours(s.PeakOfSum.PeakHours))
 	b.WriteString(peakClusters(s, hour))
 
 	// The notes come before the spread, since what they have to say is about
@@ -121,7 +121,7 @@ type segment struct {
 // taken apart, so they line up under the length they are a split of, with the
 // sum of the peaks left whole rather than drawn as the parts it breaks into.
 func peakTotals(s estate.Summary) string {
-	kept, avoided := peakCells(s.HourAware.Peak, s.WorstCase.Peak, s.WorstCase.Peak)
+	kept, avoided := peakCells(s.PeakOfSum.Peak, s.SumOfPeaks.Peak, s.SumOfPeaks.Peak)
 
 	var (
 		labels = []string{sumOfPeaksLabel, peakOfSumLabel, avoidedLabel}
@@ -132,16 +132,16 @@ func peakTotals(s estate.Summary) string {
 		}{
 			{
 				segments: []segment{{sumBand, kept + avoided}},
-				value:    estate.Num(s.WorstCase.Peak),
+				value:    estate.Num(s.SumOfPeaks.Peak),
 			},
 			{
 				segments: []segment{{keptBand, kept}},
-				value:    estate.Num(s.HourAware.Peak),
+				value:    estate.Num(s.PeakOfSum.Peak),
 			},
 			{
 				indent:   kept,
 				segments: []segment{{avoidedBand, avoided}},
-				value:    fmt.Sprintf("%s (%s)", estate.Num(s.WorstCase.Peak-s.HourAware.Peak), percent(s.Diversity())),
+				value:    fmt.Sprintf("%s (%s)", estate.Num(s.SumOfPeaks.Peak-s.PeakOfSum.Peak), percent(s.Diversity())),
 			},
 		}
 	)
@@ -206,7 +206,7 @@ func peakClusters(s estate.Summary, hour int) string {
 
 	var (
 		nameWidth = longest(append(names, totalLabel))
-		hourWidth = longest(append(atHour, peakOfSumsColumn))
+		hourWidth = longest(append(atHour, peakOfSumColumn))
 		peakWidth = longest(append(atPeak, sumOfPeaksColumn))
 	)
 
@@ -220,7 +220,7 @@ func peakClusters(s estate.Summary, hour int) string {
 	b.WriteString(peakGap)
 	b.WriteString(padLeft(sumOfPeaksColumn, peakWidth))
 	b.WriteString(peakGap)
-	b.WriteString(padLeft(peakOfSumsColumn, hourWidth))
+	b.WriteString(padLeft(peakOfSumColumn, hourWidth))
 	b.WriteString("\n")
 
 	for i := range clusters {
@@ -240,9 +240,9 @@ func peakClusters(s estate.Summary, hour int) string {
 
 	b.WriteString(padRight(totalLabel, nameWidth+len(peakGap)+peakBarWidth))
 	b.WriteString(peakGap)
-	b.WriteString(padLeft(estate.Num(s.WorstCase.Peak), peakWidth))
+	b.WriteString(padLeft(estate.Num(s.SumOfPeaks.Peak), peakWidth))
 	b.WriteString(peakGap)
-	b.WriteString(padLeft(estate.Num(s.HourAware.Peak), hourWidth))
+	b.WriteString(padLeft(estate.Num(s.PeakOfSum.Peak), hourWidth))
 	b.WriteString("\n")
 
 	return b.String()
@@ -263,15 +263,15 @@ func peakHeadingHours(hours []int) string {
 
 // peakSpread reads the chart's comparison across the whole day rather than in
 // the one hour the rows above were taken from, and against both sizings
-// rather than only the worst case. The busiest hour is the hour either rack
-// comes closest to being justified in, so the gaps it shows are the smallest
-// the day has: the average and the quietest hour are what the same racks hold
-// the rest of the time.
+// rather than only the sum of the peaks. The busiest hour is the hour either
+// rack comes closest to being justified in, so the gaps it shows are the
+// smallest the day has: the average and the quietest hour are what the same
+// racks hold the rest of the time.
 //
 // It is nothing at all for a day with no shape to read, since three rows of
 // the same figures say less than the one row above them already did.
 func peakSpread(s estate.Summary) string {
-	peakHours, quietHours := s.HourAware.PeakHours, s.QuietHours()
+	peakHours, quietHours := s.PeakOfSum.PeakHours, s.QuietHours()
 
 	drawn := [...]float64{
 		s.Hourly[peakHours[0]],
@@ -299,8 +299,8 @@ func peakSpread(s estate.Summary) string {
 		value = math.Round(value)
 
 		drawns = append(drawns, estate.Num(value))
-		idleSums = append(idleSums, idle(s.WorstCase.Peak, value))
-		idlePeaks = append(idlePeaks, idle(s.HourAware.Peak, value))
+		idleSums = append(idleSums, idle(s.SumOfPeaks.Peak, value))
+		idlePeaks = append(idlePeaks, idle(s.PeakOfSum.Peak, value))
 	}
 
 	var (
@@ -308,7 +308,7 @@ func peakSpread(s estate.Summary) string {
 		hoursWidth    = longest(append(hours, hoursColumn))
 		drawnWidth    = longest(append(drawns, drawnColumn))
 		idleSumWidth  = longest(append(idleSums, idleSumOfPeaks))
-		idlePeakWidth = longest(append(idlePeaks, idlePeakOfSums))
+		idlePeakWidth = longest(append(idlePeaks, idlePeakOfSum))
 	)
 
 	var b strings.Builder
@@ -321,7 +321,7 @@ func peakSpread(s estate.Summary) string {
 	b.WriteString(peakGap)
 	b.WriteString(padLeft(idleSumOfPeaks, idleSumWidth))
 	b.WriteString(peakGap)
-	b.WriteString(padLeft(idlePeakOfSums, idlePeakWidth))
+	b.WriteString(padLeft(idlePeakOfSum, idlePeakWidth))
 	b.WriteString("\n")
 
 	for i := range labels {
@@ -376,7 +376,7 @@ func peakNotes(s estate.Summary) []string {
 	case !s.Windowed:
 		return []string{text.Wrap(noWindows, text.Width)}
 
-	case len(s.HourAware.PeakHours) == estate.HoursPerDay:
+	case len(s.PeakOfSum.PeakHours) == estate.HoursPerDay:
 		return []string{text.Wrap(flatDay, text.Width)}
 	}
 

@@ -99,7 +99,7 @@ func JSON(w io.Writer, s estate.Summary) error {
 			SavedPercent:       sc.SavedPercent(),
 		}
 
-		if sc.HourAware {
+		if sc.Hourly {
 			js.PeakHours = sc.PeakHours
 		}
 
@@ -118,7 +118,7 @@ func JSON(w io.Writer, s estate.Summary) error {
 			BaseVCPU:        c.Base,
 			// Every peak hour draws the same total, but not the same mix of
 			// clusters, so the contribution is read off the first of them.
-			PeakHourContribution: c.VCPUAt(s.HourAware.PeakHours[0]),
+			PeakHourContribution: c.VCPUAt(s.PeakOfSum.PeakHours[0]),
 		}
 
 		if c.Windowed {

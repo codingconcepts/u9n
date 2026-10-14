@@ -55,9 +55,9 @@ type palette struct {
 // per line, and in the taupe a step down from the brand's lightest because a
 // near white fill that size glares on a dark terminal.
 var (
-	currentColours     = palette{label: "#AFF6FF", fill: "#60ECFF"} // Sci-fi Blue
-	worstCaseColours   = palette{label: "#D7EEA9", fill: "#AEDE54"} // Bio Green
-	hourAwareColours   = palette{label: "#C8ACFF", fill: "#9059FF"} // Data Purple
+	rackedTodayColours = palette{label: "#AFF6FF", fill: "#60ECFF"} // Sci-fi Blue
+	sumOfPeaksColours  = palette{label: "#D7EEA9", fill: "#AEDE54"} // Bio Green
+	peakOfSumColours   = palette{label: "#C8ACFF", fill: "#9059FF"} // Data Purple
 	utilisationColours = palette{label: "#E5E4DC", fill: "#A0A09A"} // Timeless Taupe
 )
 
@@ -119,7 +119,7 @@ func newModel(s estate.Summary) model {
 }
 
 // seriesFor turns each sizing into an hourly capacity line. Every sizing racks
-// one capacity and holds it all day, the hour aware one included: it is sized
+// one capacity and holds it all day, the peak of the sum included: it is sized
 // by the estate's busiest hour rather than by every cluster's peak at once, but
 // the hardware still sits there the other 23 hours. The gap between a line and
 // the demand beneath it is the capacity that sizing leaves idle.
@@ -134,17 +134,17 @@ func seriesFor(s estate.Summary) []series {
 	}
 
 	out := []series{
-		line(s.Current, currentColours),
-		line(s.WorstCase, worstCaseColours),
+		line(s.RackedToday, rackedTodayColours),
+		line(s.SumOfPeaks, sumOfPeaksColours),
 	}
 
-	// Without peak windows the hour aware sizing is the worst case, so plotting
-	// it would draw the same line twice.
+	// Without peak windows the peak of the sum is the sum of the peaks, so
+	// plotting it would draw the same line twice.
 	if !s.Windowed {
 		return out
 	}
 
-	return append(out, line(s.HourAware, hourAwareColours))
+	return append(out, line(s.PeakOfSum, peakOfSumColours))
 }
 
 func (m model) Init() tea.Cmd {

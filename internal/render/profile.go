@@ -74,11 +74,11 @@ type band struct {
 
 // The base band takes the neutral the demand curve uses on the other chart,
 // since it is the floor rather than one of the sizings, and the uplift the
-// hour aware purple, because the peak windows are what that sizing is built
-// out of.
+// purple of the peak of the sum, because the peak windows are what that sizing
+// is built out of.
 var (
 	baseBand   = band{label: baseLabel, block: shade, colours: utilisationColours}
-	upliftBand = band{label: upliftLabel, block: full, colours: hourAwareColours}
+	upliftBand = band{label: upliftLabel, block: full, colours: peakOfSumColours}
 )
 
 // ProfileTable writes what the estate draws across the day as a row an hour,

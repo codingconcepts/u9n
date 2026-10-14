@@ -14,8 +14,8 @@ import (
 	"github.com/codingconcepts/u9n/internal/estate"
 )
 
-// graphFixture is two clusters peaking in different windows, so the hour aware
-// line moves and the three sizings differ.
+// graphFixture is two clusters peaking in different windows, so the peak of
+// the sum line moves and the three sizings differ.
 func graphFixture() estate.Summary {
 	return estate.Summarise([]estate.Cluster{
 		{Name: "a", Provisioned: 100, Peak: 40, Base: 10, PeakFrom: 9, PeakTo: 17, Windowed: true},
@@ -40,27 +40,27 @@ func TestSeriesFor(t *testing.T) {
 		}
 	}
 
-	if got := series[0].values[0]; got != s.Current.Required {
-		t.Errorf("current: expected %g, got %g", s.Current.Required, got)
+	if got := series[0].values[0]; got != s.RackedToday.Required {
+		t.Errorf("racked today: expected %g, got %g", s.RackedToday.Required, got)
 	}
 
-	if got := series[1].values[0]; got != s.WorstCase.Required {
-		t.Errorf("worst case: expected %g, got %g", s.WorstCase.Required, got)
+	if got := series[1].values[0]; got != s.SumOfPeaks.Required {
+		t.Errorf("sum of the peaks: expected %g, got %g", s.SumOfPeaks.Required, got)
 	}
 
-	// The hour aware line is the capacity the table reports, held all day, and
-	// it must sit below the worst case for peaks falling in different windows
-	// to be worth anything.
-	if got := series[2].values[0]; got != s.HourAware.Required {
-		t.Errorf("hour aware: expected %g, got %g", s.HourAware.Required, got)
+	// The peak of the sum line is the capacity the table reports, held all
+	// day, and it must sit below the sum of the peaks for peaks falling in
+	// different windows to be worth anything.
+	if got := series[2].values[0]; got != s.PeakOfSum.Required {
+		t.Errorf("peak of the sum: expected %g, got %g", s.PeakOfSum.Required, got)
 	}
 
 	if series[2].peak() >= series[1].peak() {
-		t.Errorf("hour aware: %g is not below the worst case %g", series[2].peak(), series[1].peak())
+		t.Errorf("peak of the sum: %g is not below the sum of the peaks %g", series[2].peak(), series[1].peak())
 	}
 }
 
-// Without peak windows there is no hour aware sizing to plot, so the chart
+// Without peak windows there is no peak of the sum sizing to plot, so the chart
 // must not imply one.
 func TestSeriesForWithoutWindows(t *testing.T) {
 	s := estate.Summarise([]estate.Cluster{{Name: "a", Provisioned: 100, Peak: 40}}, estate.Assumptions{Headroom: 20, Years: 1})
@@ -76,7 +76,7 @@ func TestGraphView(t *testing.T) {
 	model, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	view := model.View()
 
-	for _, want := range []string{"Utilisation", "Current", "Worst case", "Hour aware", quitPrompt, "00", "23"} {
+	for _, want := range []string{"Utilisation", "Racked today", "Sum of the peaks", "Peak of the sum", quitPrompt, "00", "23"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("expected the view to contain %q", want)
 		}
@@ -168,9 +168,9 @@ func TestGraphAxisLabels(t *testing.T) {
 	labels := m.axisLabels(height)
 
 	exp := map[string]lipgloss.Color{
-		"200": currentColours.label,     // what is racked today
-		"96":  worstCaseColours.label,   // ceil(80 * 1.2)
-		"60":  hourAwareColours.label,   // ceil(50 * 1.2)
+		"200": rackedTodayColours.label, // what is racked today
+		"96":  sumOfPeaksColours.label,  // ceil(80 * 1.2)
+		"60":  peakOfSumColours.label,   // ceil(50 * 1.2)
 		"50":  utilisationColours.label, // the busiest hour's demand
 		"0":   "",
 	}
@@ -231,8 +231,8 @@ func TestGraphCell(t *testing.T) {
 	m := newModel(graphFixture())
 
 	// A 200 axis over 10 rows puts a row every 20 vcpu. Hour 9 draws 50 of
-	// demand and hour 0 only 20, under the hour aware 60, the worst case 96
-	// and the current 200.
+	// demand and hour 0 only 20, under the peak of the sum 60, the sum of the
+	// peaks 96 and racked today 200.
 	const height = 10
 
 	cases := []struct {
@@ -244,14 +244,14 @@ func TestGraphCell(t *testing.T) {
 	}{
 		{name: "demand fills the rows under its line", hour: 9, row: 0, block: shade, colour: utilisationColours.fill},
 
-		// The hour aware 60 lands on the same row as the 50 of demand, and the
+		// The peak of the sum 60 lands on the same row as the 50 of demand, and the
 		// lower of the two takes it.
 		{name: "the lower of two lines sharing a row", hour: 9, row: 2, block: full, colour: utilisationColours.fill},
 
-		{name: "the lowest fill over the demand", hour: 0, row: 1, block: shade, colour: hourAwareColours.fill},
-		{name: "hour aware line", hour: 0, row: 2, block: full, colour: hourAwareColours.fill},
-		{name: "worst case line", hour: 0, row: 4, block: full, colour: worstCaseColours.fill},
-		{name: "current line at the top", hour: 0, row: height - 1, block: full, colour: currentColours.fill},
+		{name: "the lowest fill over the demand", hour: 0, row: 1, block: shade, colour: peakOfSumColours.fill},
+		{name: "peak of the sum line", hour: 0, row: 2, block: full, colour: peakOfSumColours.fill},
+		{name: "sum of the peaks line", hour: 0, row: 4, block: full, colour: sumOfPeaksColours.fill},
+		{name: "racked today line at the top", hour: 0, row: height - 1, block: full, colour: rackedTodayColours.fill},
 		{name: "nothing above the highest line", hour: 0, row: height, block: " ", colour: ""},
 	}
 
@@ -282,12 +282,12 @@ func TestGraphCellLinesAreWholeBlocks(t *testing.T) {
 	// A line at 1 of a 200 axis barely reaches into row 0, and one at 200
 	// fills row 9 to the top. Both are drawn the same.
 	for _, value := range []float64{1, 185, 200} {
-		sizing := curve{colours: hourAwareColours, columns: m.spans([]float64{value}, height)}
+		sizing := curve{colours: peakOfSumColours, columns: m.spans([]float64{value}, height)}
 
 		row, _ := m.lineRow(value, height)
 
-		if block, colour := m.cell([]curve{sizing}, 0, row); block != full || colour != hourAwareColours.fill {
-			t.Errorf("%g: expected %q in %q, got %q in %q", value, full, hourAwareColours.fill, block, colour)
+		if block, colour := m.cell([]curve{sizing}, 0, row); block != full || colour != peakOfSumColours.fill {
+			t.Errorf("%g: expected %q in %q, got %q in %q", value, full, peakOfSumColours.fill, block, colour)
 		}
 	}
 }

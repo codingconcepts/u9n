@@ -32,9 +32,10 @@ func sizeCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "size",
-		Short: "Size the estate as it stands, at worst case, and hour by hour",
-		Long: text.Wrap("Size the estate three ways: as it stands, assuming every cluster peaks at\n"+
-			"once, and walking the 24 hour clock.", text.Width),
+		Short: "Size the estate as it's racked today, for the sum of the peaks, and for the peak of the sum",
+		Long: text.Wrap("Size the estate three ways: as it's racked today, for the sum of the peaks,\n"+
+			"which assumes every cluster peaks at once, and for the peak of the sum, which\n"+
+			"walks the 24 hour clock.", text.Width),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSize(cmd.OutOrStdout(), o)

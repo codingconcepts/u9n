@@ -75,7 +75,7 @@ func scenarioRows(s estate.Summary) [][]string {
 
 	for _, sc := range s.Scenarios() {
 		peakHours := "-"
-		if sc.HourAware {
+		if sc.Hourly {
 			peakHours = estate.FormatHours(sc.PeakHours)
 		}
 

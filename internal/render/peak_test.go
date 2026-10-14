@@ -43,7 +43,7 @@ func TestPeak(t *testing.T) {
 		// rather than split into the two bands the rows below it are.
 		"Sum of the peaks  " + strings.Repeat("█", 40) + "  150",
 		"",
-		"Peak of the sums  " + strings.Repeat("█", 30) + strings.Repeat(" ", 10) + "  110",
+		"Peak of the sum   " + strings.Repeat("█", 30) + strings.Repeat(" ", 10) + "  110",
 		"",
 		"Avoided           " + strings.Repeat(" ", 30) + strings.Repeat("░", 10) + "  40 (26.67%)",
 		"",
@@ -52,10 +52,10 @@ func TestPeak(t *testing.T) {
 		"",
 		// The figures are headed over their own columns, clear of the bars, and
 		// are ordered the way the totals above them are.
-		strings.Repeat(" ", gutter) + "  Sum of peaks  Peak of sums",
-		"big    " + strings.Repeat("█", 40) + "           100           100",
-		"small  " + strings.Repeat("█", 4) + strings.Repeat("░", 16) + strings.Repeat(" ", 20) + "            50            10",
-		"Total" + strings.Repeat(" ", gutter-len("Total")) + "           150           110",
+		strings.Repeat(" ", gutter) + "  Sum of peaks  Peak of sum",
+		"big    " + strings.Repeat("█", 40) + "           100          100",
+		"small  " + strings.Repeat("█", 4) + strings.Repeat("░", 16) + strings.Repeat(" ", 20) + "            50           10",
+		"Total" + strings.Repeat(" ", gutter-len("Total")) + "           150          110",
 		"",
 		// The same comparison read across the day rather than in the hour the
 		// rows above were taken from, and against both racks rather than one.
@@ -63,10 +63,10 @@ func TestPeak(t *testing.T) {
 		// listed.
 		spreadHeading,
 		"",
-		"          Hours     Drawn  Idle sum of peaks  Idle peak of sums",
-		"Busiest   00:00       110        40 (26.67%)          0 (0.00%)",
-		"Average   all day      16       134 (89.33%)        94 (85.45%)",
-		"Quietest  22 hours     10       140 (93.33%)       100 (90.91%)",
+		"          Hours     Drawn  Idle sum of peaks  Idle peak of sum",
+		"Busiest   00:00       110        40 (26.67%)         0 (0.00%)",
+		"Average   all day      16       134 (89.33%)       94 (85.45%)",
+		"Quietest  22 hours     10       140 (93.33%)      100 (90.91%)",
 		"",
 		"",
 	}, "\n")

@@ -33,13 +33,13 @@ func TestJSON(t *testing.T) {
 		t.Fatalf("expected 3 scenarios, got %d", len(out.Scenarios))
 	}
 
-	// Only the hour aware sizing has peak hours to report, and it must say so
+	// Only the peak of the sum has peak hours to report, and it must say so
 	// with null rather than a misleading midnight.
 	for _, sc := range out.Scenarios {
 		switch sc.Key {
-		case estate.KeyHourAware:
+		case estate.KeyPeakOfSum:
 			if !slices.Equal(sc.PeakHours, []int{9, 10}) {
-				t.Errorf("hour aware: expected peak hours 9 and 10, got %v", sc.PeakHours)
+				t.Errorf("peak of the sum: expected peak hours 9 and 10, got %v", sc.PeakHours)
 			}
 		default:
 			if sc.PeakHours != nil {
@@ -93,11 +93,11 @@ func TestJSONWithoutWindows(t *testing.T) {
 		t.Fatalf("expected 3 scenarios, got %d", len(out.Scenarios))
 	}
 
-	// The hour aware sizing repeats the worst case, but still answers the peak
-	// hours rather than leaving them null. Every hour is as busy as the last,
-	// so every hour is a peak.
-	if hourAware := out.Scenarios[2]; len(hourAware.PeakHours) != estate.HoursPerDay {
-		t.Errorf("expected the hour aware sizing to peak all day, got %+v", hourAware)
+	// The peak of the sum repeats the sum of the peaks, but still answers the
+	// peak hours rather than leaving them null. Every hour is as busy as the
+	// last, so every hour is a peak.
+	if peakOfSum := out.Scenarios[2]; len(peakOfSum.PeakHours) != estate.HoursPerDay {
+		t.Errorf("expected the peak of the sum to peak all day, got %+v", peakOfSum)
 	}
 
 	if detail := out.ClusterDetail[0]; detail.PeakFrom != nil || detail.PeakTo != nil {
