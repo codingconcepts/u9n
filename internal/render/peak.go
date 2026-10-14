@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/codingconcepts/u9n/internal/estate"
+	"github.com/codingconcepts/u9n/internal/text"
 )
 
 const (
@@ -373,10 +374,10 @@ func spreadHours(hours []int) string {
 func peakNotes(s estate.Summary) []string {
 	switch {
 	case !s.Windowed:
-		return []string{noWindows}
+		return []string{text.Wrap(noWindows, text.Width)}
 
 	case len(s.HourAware.PeakHours) == estate.HoursPerDay:
-		return []string{flatDay}
+		return []string{text.Wrap(flatDay, text.Width)}
 	}
 
 	return nil

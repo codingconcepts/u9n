@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/codingconcepts/u9n/internal/estate"
+	"github.com/codingconcepts/u9n/internal/text"
 )
 
 // peakFixture is two clusters whose peaks fall in different hours, so the two
@@ -173,8 +174,12 @@ func TestPeakWithoutWindows(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(b.String(), noWindows) {
-		t.Errorf("expected %q, got:\n%s", noWindows, b.String())
+	// The note is wrapped where it is printed rather than where it is written,
+	// so it is the wrapped form the chart is read for.
+	note := text.Wrap(noWindows, text.Width)
+
+	if !strings.Contains(b.String(), note) {
+		t.Errorf("expected %q, got:\n%s", note, b.String())
 	}
 
 	if !strings.Contains(b.String(), "0 (0.00%)") {

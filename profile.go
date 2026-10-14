@@ -6,6 +6,7 @@ import (
 
 	"github.com/codingconcepts/u9n/internal/estate"
 	"github.com/codingconcepts/u9n/internal/render"
+	"github.com/codingconcepts/u9n/internal/text"
 	"github.com/spf13/cobra"
 )
 
@@ -36,11 +37,11 @@ func profileCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "profile",
 		Short: "Report what the estate draws each hour from 00:00 to 23:00",
-		Long: "Report what the estate draws each hour, as a row an hour, as a stacked bar a\n" +
-			"day wide, or as json. The base band is the vcpu every cluster holds around\n" +
-			"the clock, and the peak band what the peak windows add on top of it.\n\n" +
-			"This is today's demand rather than a sizing, so it carries no headroom or\n" +
-			"growth. Use the size command for those.",
+		Long: text.Wrap("Report what the estate draws each hour, as a row an hour, as a stacked bar a\n"+
+			"day wide, or as json. The base band is the vcpu every cluster holds around\n"+
+			"the clock, and the peak band what the peak windows add on top of it.\n\n"+
+			"This is today's demand rather than a sizing, so it carries no headroom or\n"+
+			"growth. Use the size command for those.", text.Width),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runProfile(cmd.OutOrStdout(), o)

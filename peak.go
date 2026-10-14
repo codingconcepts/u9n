@@ -6,6 +6,7 @@ import (
 
 	"github.com/codingconcepts/u9n/internal/estate"
 	"github.com/codingconcepts/u9n/internal/render"
+	"github.com/codingconcepts/u9n/internal/text"
 	"github.com/spf13/cobra"
 )
 
@@ -20,16 +21,16 @@ func peakCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "peak",
 		Short: "Chart the sum of the peaks against the peak of the sum",
-		Long: "Chart the two numbers an estate can be sized for: the sum of every cluster's\n" +
-			"peak, which assumes they all peak at the same instant, and the peak of what\n" +
-			"they draw together, which is the busiest hour of the day they actually share.\n\n" +
-			"The gap between the two is the capacity bought for peaks that never land in\n" +
-			"the same hour. Each cluster is then drawn as its own peak, with the part of it\n" +
-			"the estate is serving at the peak hour filled in and the rest shaded, so the\n" +
-			"clusters driving the gap can be picked out by eye.\n\n" +
-			"This compares demand rather than sizings, so it carries no headroom or growth.\n" +
-			"Both numbers scale by the same factor under either, which moves them without\n" +
-			"moving the gap. Use the size command for what the estate has to rack.",
+		Long: text.Wrap("Chart the two numbers an estate can be sized for: the sum of every cluster's\n"+
+			"peak, which assumes they all peak at the same instant, and the peak of what\n"+
+			"they draw together, which is the busiest hour of the day they actually share.\n\n"+
+			"The gap between the two is the capacity bought for peaks that never land in\n"+
+			"the same hour. Each cluster is then drawn as its own peak, with the part of it\n"+
+			"the estate is serving at the peak hour filled in and the rest shaded, so the\n"+
+			"clusters driving the gap can be picked out by eye.\n\n"+
+			"This compares demand rather than sizings, so it carries no headroom or growth.\n"+
+			"Both numbers scale by the same factor under either, which moves them without\n"+
+			"moving the gap. Use the size command for what the estate has to rack.", text.Width),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runPeak(cmd.OutOrStdout(), o)

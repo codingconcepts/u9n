@@ -6,6 +6,7 @@ import (
 
 	"github.com/codingconcepts/u9n/internal/estate"
 	"github.com/codingconcepts/u9n/internal/render"
+	"github.com/codingconcepts/u9n/internal/text"
 	"github.com/spf13/cobra"
 )
 
@@ -32,8 +33,8 @@ func sizeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "size",
 		Short: "Size the estate as it stands, at worst case, and hour by hour",
-		Long: "Size the estate three ways: as it stands, assuming every cluster peaks at\n" +
-			"once, and walking the 24 hour clock.",
+		Long: text.Wrap("Size the estate three ways: as it stands, assuming every cluster peaks at\n"+
+			"once, and walking the 24 hour clock.", text.Width),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSize(cmd.OutOrStdout(), o)

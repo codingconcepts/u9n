@@ -1,0 +1,6 @@
+name,provisioned_vcpu,peak_vcpu,base_vcpu,peak_from,peak_to
+trip-matching,1100,600,90,7,10
+surge-pricing,420,220,20,17,21
+payments-settlement,320,180,30,22,4
+map-tiles,300,160,120,8,20
+fraud-scoring,260,140,40,20,23
