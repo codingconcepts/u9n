@@ -1,5 +1,5 @@
 # u9n
-Size for the peak of the sum, not the sum of the peaks (and then size for less than that).
+Size for the peak of the sum, not the sum of the peaks.
 
 If you run multiple workloads on separate hardware, you'll be sizing each of them independently (perhaps they're running on separate machines). To ensure that none of them run out of resources, you'll be sizing all of them for their worst day (or best day, depending on how you look at it).
 
